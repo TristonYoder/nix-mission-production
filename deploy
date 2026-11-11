@@ -135,11 +135,14 @@ PREPARE_MAC='set -e
   if ! xcode-select -p >/dev/null 2>&1; then
     marker=/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
     sudo touch "$marker"
+    # Label format varies by release ("...Xcode-16.4", "...Xcode 27.2-27.2"),
+    # so sort on the version alone and keep the newest label.
     label=$(softwareupdate -l 2>/dev/null |
-      sed -n "s/^\* Label: \(Command Line Tools for Xcode-.*\)$/\1/p" | sort -V | tail -1)
-    [ -n "$label" ] || { echo "Command Line Tools not offered by softwareupdate" >&2; exit 1; }
-    sudo softwareupdate -i "$label"
+      sed -n "s/^\* Label: \(Command Line Tools for Xcode[- ]\(.*\)\)$/\2|\1/p" |
+      sort -t "|" -k1,1V | tail -1 | cut -d "|" -f2)
+    [ -z "$label" ] || sudo softwareupdate -i "$label"
     sudo rm -f "$marker"
+    xcode-select -p >/dev/null 2>&1 || { echo "Command Line Tools did not install" >&2; exit 1; }
   fi
 
   if [ ! -x /nix/var/nix/profiles/default/bin/nix ]; then
@@ -166,8 +169,11 @@ cmd_bootstrap() {
     ssh -o PubkeyAuthentication=no "$target" 'umask 077; mkdir -p ~/.ssh; cat > ~/.ssh/authorized_keys'
 
   step "Register host key"
-  ssh "$target" cat /etc/ssh/ssh_host_ed25519_key.pub | awk '{print $1, $2}' > "secrets/host-keys/$host.pub"
-  if compgen -G 'secrets/*.age' > /dev/null; then
+  local keyfile="secrets/host-keys/$host.pub" key
+  key=$(ssh "$target" cat /etc/ssh/ssh_host_ed25519_key.pub | awk '{print $1, $2}')
+  if [ "$key" = "$(cat "$keyfile" 2>/dev/null)" ]; then
+    echo "already registered"
+  elif echo "$key" > "$keyfile" && compgen -G 'secrets/*.age' > /dev/null; then
     [ -f "$AGENIX_IDENTITY" ] || die "need the agenix admin key at $AGENIX_IDENTITY to re-key secrets"
     (cd secrets && nix develop .. -c agenix -r -i "$AGENIX_IDENTITY")
   fi
