@@ -169,9 +169,13 @@ cmd_bootstrap() {
   add_installers
 
   step "Install deploy keys (password for $user on $addr)"
-  # Password only: offering every agent key first can trip sshd's MaxAuthTries.
-  inv 'i: builtins.concatStringsSep "\n" i.deployKeys' |
-    ssh -o PubkeyAuthentication=no "$target" 'umask 077; mkdir -p ~/.ssh; cat > ~/.ssh/authorized_keys'
+  if ssh -o BatchMode=yes "$target" true 2>/dev/null; then
+    echo "key login already works"
+  else
+    # Password only: offering every agent key first can trip sshd's MaxAuthTries.
+    inv 'i: builtins.concatStringsSep "\n" i.deployKeys' |
+      ssh -o PubkeyAuthentication=no "$target" 'umask 077; mkdir -p ~/.ssh; cat > ~/.ssh/authorized_keys'
+  fi
 
   step "Register host key"
   local keyfile="secrets/host-keys/$host.pub" key
