@@ -17,6 +17,10 @@ cd "$(dirname "$0")"
 AGENIX_IDENTITY=${AGENIX_IDENTITY:-$HOME/.ssh/agenix}
 INSTALLERS=${PRODUCTION_INSTALLERS:-$HOME/ProductionInstallers}
 
+# Use only the public cache, whatever the deploy Mac's own nix.conf adds, so
+# any Mac with Nix can deploy. Also forwarded to the targets over ssh-ng.
+export NIX_CONFIG="substituters = https://cache.nixos.org/"
+
 die() { echo "error: $*" >&2; exit 1; }
 step() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 
@@ -82,7 +86,8 @@ deploy_host() {
 
   step "$host: copy to $target"
   nixbin=$(remote_nix_bin "$target")
-  nix copy --substitute-on-destination \
+  # Our own builds are unsigned; the operator is a trusted Nix user there.
+  nix copy --no-check-sigs --substitute-on-destination \
     --to "ssh-ng://$target?remote-program=$nixbin/nix-daemon" "$path"
 
   step "$host: activate"
