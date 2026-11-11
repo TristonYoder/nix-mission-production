@@ -63,8 +63,8 @@ Current fleet:
    ```
 
    This installs the deploy keys (asks for the operator password once), registers
-   the host key and re-keys secrets (committing that change), installs Nix, then
-   deploys. Push the commit afterwards.
+   the host key and re-keys secrets (committing that change), installs the Xcode
+   Command Line Tools and Nix, then deploys. Push the commit afterwards.
 
 **At the Mac again:**
 

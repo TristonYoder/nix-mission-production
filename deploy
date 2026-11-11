@@ -127,6 +127,32 @@ cmd_deploy() {
   for h in "${hosts[@]}"; do deploy_host "$h"; done
 }
 
+# Runs on a fresh Mac; $1 is the operator user.
+# shellcheck disable=SC2016  # expanded on the remote side
+PREPARE_MAC='set -e
+  # Command Line Tools: Homebrew expects them. The in-progress marker makes
+  # softwareupdate list them, so they install without the GUI prompt.
+  if ! xcode-select -p >/dev/null 2>&1; then
+    marker=/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
+    sudo touch "$marker"
+    label=$(softwareupdate -l 2>/dev/null |
+      sed -n "s/^\* Label: \(Command Line Tools for Xcode-.*\)$/\1/p" | sort -V | tail -1)
+    [ -n "$label" ] || { echo "Command Line Tools not offered by softwareupdate" >&2; exit 1; }
+    sudo softwareupdate -i "$label"
+    sudo rm -f "$marker"
+  fi
+
+  if [ ! -x /nix/var/nix/profiles/default/bin/nix ]; then
+    curl -sSfL https://nixos.org/nix/install -o /tmp/nix-install
+    sh /tmp/nix-install --daemon --yes
+  fi
+
+  # Let ./deploy copy closures in before nix-darwin manages nix.conf.
+  if [ ! -e /run/current-system ] && ! grep -q "^trusted-users" /etc/nix/nix.conf; then
+    echo "trusted-users = root $1" | sudo tee -a /etc/nix/nix.conf >/dev/null
+    sudo launchctl kickstart -k system/org.nixos.nix-daemon
+  fi'
+
 cmd_bootstrap() {
   local host=${1:?usage: $0 bootstrap <host> <address>} addr=${2:?usage: $0 bootstrap <host> <address>}
   local target="$user@$addr"
@@ -135,8 +161,9 @@ cmd_bootstrap() {
   add_installers
 
   step "Install deploy keys (password for $user on $addr)"
+  # Password only: offering every agent key first can trip sshd's MaxAuthTries.
   inv 'i: builtins.concatStringsSep "\n" i.deployKeys' |
-    ssh "$target" 'umask 077; mkdir -p ~/.ssh; cat > ~/.ssh/authorized_keys'
+    ssh -o PubkeyAuthentication=no "$target" 'umask 077; mkdir -p ~/.ssh; cat > ~/.ssh/authorized_keys'
 
   step "Register host key"
   ssh "$target" cat /etc/ssh/ssh_host_ed25519_key.pub | awk '{print $1, $2}' > "secrets/host-keys/$host.pub"
@@ -149,16 +176,8 @@ cmd_bootstrap() {
     git commit -q -m "hosts: register $host" && echo "committed host key for $host (not pushed)"
   fi
 
-  step "Install Nix (sudo password for $user)"
-  ssh -t "$target" "set -e
-    if [ ! -x /nix/var/nix/profiles/default/bin/nix ]; then
-      curl -sSfL https://nixos.org/nix/install -o /tmp/nix-install
-      sh /tmp/nix-install --daemon --yes
-    fi
-    if [ ! -e /run/current-system ] && ! grep -q '^trusted-users' /etc/nix/nix.conf; then
-      echo 'trusted-users = root $user' | sudo tee -a /etc/nix/nix.conf >/dev/null
-      sudo launchctl kickstart -k system/org.nixos.nix-daemon
-    fi"
+  step "Install Command Line Tools and Nix (sudo password for $user)"
+  ssh -t "$target" "bash -c $(printf %q "$PREPARE_MAC") _ $user"
 
   # Use the address given: until activation sets its name, the Mac does not
   # answer at <host>.local.
