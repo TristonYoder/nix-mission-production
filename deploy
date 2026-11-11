@@ -15,6 +15,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 AGENIX_IDENTITY=${AGENIX_IDENTITY:-$HOME/.ssh/agenix}
+INSTALLERS=${PRODUCTION_INSTALLERS:-$HOME/ProductionInstallers}
 
 die() { echo "error: $*" >&2; exit 1; }
 step() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
@@ -57,6 +58,16 @@ remote_nix_bin() {
             else echo /nix/var/nix/profiles/default/bin; fi'
 }
 
+# Vendor .pkg files pinned in modules/apps.nix are not downloadable by Nix;
+# feed them into the store from the local installers folder.
+add_installers() {
+  local f
+  for f in "$INSTALLERS"/*.pkg; do
+    [ -e "$f" ] && nix-store --add-fixed sha256 "$f" > /dev/null
+  done
+  return 0
+}
+
 build() {
   nix build ".#darwinConfigurations.$1.system" --no-link --print-out-paths
 }
@@ -74,10 +85,12 @@ deploy_host() {
   nix copy --substitute-on-destination \
     --to "ssh-ng://$target?remote-program=$nixbin/nix-daemon" "$path"
 
-  step "$host: activate (sudo password for $user)"
+  step "$host: activate"
+  # -A: sudo on the Mac authenticates against the forwarded agent (pam_rssh,
+  # see modules/production.nix); it falls back to the password prompt.
   # On the very first activation, move aside the /etc files the Nix installer
   # wrote so nix-darwin can take them over (nix-darwin refuses otherwise).
-  ssh -t "$target" "set -e
+  ssh -t -A "$target" "set -e
     sudo -v
     if [ ! -e /run/current-system ]; then
       for f in /etc/bashrc /etc/zshrc /etc/nix/nix.conf; do
@@ -102,6 +115,7 @@ cmd_deploy() {
     shift
   done
   [ ${#hosts[@]} -gt 0 ] || die "no hosts given (see header of $0)"
+  add_installers
 
   if [ $build_only = 1 ]; then
     for h in "${hosts[@]}"; do step "$h: build"; build "$h"; done
@@ -118,6 +132,7 @@ cmd_bootstrap() {
   local target="$user@$addr"
   host_exists "$host" || die "add '$host' to inventory.nix (and commit) first"
   require_clean_tree
+  add_installers
 
   step "Install deploy keys (password for $user on $addr)"
   inv 'i: builtins.concatStringsSep "\n" i.deployKeys' |

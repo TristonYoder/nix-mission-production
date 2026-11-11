@@ -1,6 +1,6 @@
 # Baseline for every production Mac: identity, operator account, remote
 # access, and "never surprise anyone during a service" system settings.
-{ config, lib, pkgs, inventory, ... }:
+{ config, lib, pkgs, pkgs-unstable, inventory, ... }:
 
 let
   cfg = config.production;
@@ -46,6 +46,13 @@ in
     services.openssh.extraConfig = ''
       PasswordAuthentication no
       KbdInteractiveAuthentication no
+    '';
+
+    # sudo accepts a deploy key from a forwarded SSH agent (`ssh -A`), so
+    # deploys need no password. Anyone else, including at the console, still
+    # gets the normal password prompt.
+    security.pam.services.sudo_local.text = ''
+      auth sufficient ${pkgs-unstable.pam_rssh}/lib/libpam_rssh.dylib auth_key_file=/etc/ssh/nix_authorized_keys.d/${user}
     '';
 
     # --- Nix ------------------------------------------------------------------

@@ -37,15 +37,18 @@ Current fleet:
 
 - Builds only committed code (refuses a dirty tree), so each machine maps to a commit.
 - Refuses to run inside a blackout window from `inventory.nix` unless given `--force`.
-- Asks for the operator's sudo password once per machine.
+- No sudo password: `deploy` forwards your SSH agent and sudo on the Mac accepts
+  a key from `deployKeys` (pam_rssh). Without the agent, sudo falls back to the
+  password, so console use is unchanged.
 - Each Mac is reached at `<name>.local`; set `address` in the inventory to override.
 
 ## Adding a new Mac
 
 **At the Mac** (the only hands-on part before deploying):
 
-1. Run through Setup Assistant. Create the operator account (`user` in
-   `inventory.nix`) as an admin with the shared password. Leave FileVault **off** if
+1. Run through Setup Assistant. Create the operator account as an admin with the
+   shared password: full name **Mission Production**, account name
+   **missionproduction** (`user` in `inventory.nix`). Leave FileVault **off** if
    the Mac should log in automatically.
 2. Turn on **System Settings → General → Sharing → Remote Login**.
 3. Note its IP address.
@@ -66,19 +69,38 @@ Current fleet:
 **At the Mac again:**
 
 - Reboot once so the login items and wallpaper apply.
-- CG/Audio: install the vendor apps below, then approve their system extensions.
+- CG/Audio: approve the Desktop Video and Dante system extensions when prompted.
   Desktop Video's kernel extension needs **Reduced Security** set in Recovery
   (hold power → Options → Startup Security Utility) before macOS will load it.
 - Activate licences: Dante Virtual Soundcard, ProPresenter, Resolume.
 
-### Vendor apps (no Homebrew cask)
+### Vendor installers (Desktop Video, Dante Virtual Soundcard)
 
-Each activation prints a warning while these are missing.
+These have no Homebrew cask, since the downloads sit behind a vendor form or
+login. Instead, the repo pins the exact `.pkg` by file name and hash in
+`modules/apps.nix`, and every machine gets that version.
 
-| App | Download |
-|---|---|
-| Blackmagic Desktop Video | https://www.blackmagicdesign.com/support/family/capture-and-playback |
-| Dante Virtual Soundcard | https://my.audinate.com/ (account required) |
+- The `.pkg` files live in `~/ProductionInstallers` on the deploy Mac (override
+  with `PRODUCTION_INSTALLERS`). They are never committed; `./deploy` imports them
+  into the Nix store and ships them inside each machine's system.
+- On activation, a machine runs `installer` only when the pinned `.pkg` differs
+  from the one it last installed (tracked in `/var/db/production-installers`).
+- If a pinned file is missing, the build stops and says where to download it.
+
+To pin or upgrade:
+
+1. Download the installer (Desktop Video comes as a `.dmg`; copy the `.pkg` out of
+   it) into `~/ProductionInstallers`.
+2. In `modules/apps.nix`, set `file` to the exact file name and `hash` to the
+   output of:
+
+   ```bash
+   nix hash file ~/ProductionInstallers/<file>.pkg
+   ```
+
+3. Commit and deploy. Restart the affected machines afterwards.
+
+While `file = null`, an app is unpinned: activation only warns if it's missing.
 
 ## Common changes
 

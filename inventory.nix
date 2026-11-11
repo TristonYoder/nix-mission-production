@@ -1,9 +1,9 @@
 # Single source of truth for the fleet. Adding a machine = one entry under
 # `hosts`, then `./deploy bootstrap <name> <address>`.
 {
-  # The shared operator account. Created by hand in Setup Assistant on each Mac;
-  # its password is never in this repo.
-  user = "production";
+  # The shared operator account. Created by hand in Setup Assistant on each Mac
+  # (full name "Mission Production"); its password is never in this repo.
+  user = "missionproduction";
 
   # SSH public keys allowed to deploy (the "known Mac"). Public keys are safe to
   # commit.
