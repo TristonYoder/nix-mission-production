@@ -55,6 +55,15 @@ in
       auth sufficient ${pkgs-unstable.pam_rssh}/lib/libpam_rssh.dylib auth_key_file=/etc/ssh/nix_authorized_keys.d/${user}
     '';
 
+    # Activation runs Homebrew as the operator, and Homebrew installs .pkg casks
+    # with `sudo -E -- VAR=... /usr/sbin/installer`. That sudo can't reach the
+    # forwarded agent, so allow exactly that command (SETENV covers -E and the
+    # VAR= arguments). This adds no real privilege: the operator is an admin and
+    # a trusted Nix user already.
+    security.sudo.extraConfig = ''
+      ${user} ALL = (root) NOPASSWD:SETENV: /usr/sbin/installer
+    '';
+
     # --- Nix ------------------------------------------------------------------
     nix.settings = {
       experimental-features = [ "nix-command" "flakes" ];
