@@ -1,0 +1,54 @@
+{
+  description = "Live production Macs";
+
+  inputs = {
+    # Stable channels: show machines should only change when we decide they change.
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-26.05-darwin";
+
+    nix-darwin = {
+      url = "github:nix-darwin/nix-darwin/nix-darwin-26.05";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    nix-homebrew.url = "github:zhaofengli/nix-homebrew";
+
+    agenix = {
+      url = "github:ryantm/agenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
+
+  outputs = { self, nixpkgs, nix-darwin, nix-homebrew, agenix }:
+    let
+      inventory = import ./inventory.nix;
+      system = "aarch64-darwin";
+
+      mkHost = name: host:
+        nix-darwin.lib.darwinSystem {
+          inherit system;
+          specialArgs = { inherit inventory; };
+          modules = [
+            nix-homebrew.darwinModules.nix-homebrew
+            agenix.darwinModules.default
+            ./modules
+            ./roles/${host.role}.nix
+            {
+              production.hostName = name;
+              production.apps = host.apps or [ ];
+              system.configurationRevision = self.rev or self.dirtyRev or null;
+            }
+            (nixpkgs.lib.optionalAttrs (host ? label) { production.label = host.label; })
+          ] ++ nixpkgs.lib.optional (host ? config) host.config;
+        };
+    in
+    {
+      darwinConfigurations = builtins.mapAttrs mkHost inventory.hosts;
+
+      # Read by ./deploy (addresses, blackout windows, roles).
+      inherit inventory;
+
+      devShells.${system}.default = nixpkgs.legacyPackages.${system}.mkShell {
+        packages = [ agenix.packages.${system}.default ];
+      };
+    };
+}

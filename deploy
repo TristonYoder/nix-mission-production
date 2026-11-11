@@ -1,0 +1,178 @@
+#!/usr/bin/env bash
+# Build production Macs here, copy the result over SSH, activate it there.
+#
+#   ./deploy <host>...            deploy named hosts
+#   ./deploy --role <role>        deploy every host with that role
+#   ./deploy --all                deploy every host
+#   ./deploy bootstrap <host> <address>
+#                                 first-time setup of a fresh Mac
+#
+# Options (deploy):  --force   ignore blackout windows
+#                    --build   build only, touch nothing remote
+#
+# Deploys only ever build committed code, so every machine maps to a commit.
+set -euo pipefail
+cd "$(dirname "$0")"
+
+AGENIX_IDENTITY=${AGENIX_IDENTITY:-$HOME/.ssh/agenix}
+
+die() { echo "error: $*" >&2; exit 1; }
+step() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
+
+inv() { nix eval --raw .#inventory --apply "$1"; }
+
+user=$(inv 'i: i.user')
+
+host_exists() { [ "$(inv "i: if i.hosts ? \"$1\" then \"y\" else \"n\"")" = y ]; }
+address_of() { inv "i: i.hosts.\"$1\".address or \"$1.local\""; }
+all_hosts() { inv 'i: toString (builtins.attrNames i.hosts)'; }
+hosts_with_role() {
+  inv "i: toString (builtins.filter (n: i.hosts.\${n}.role == \"$1\") (builtins.attrNames i.hosts))"
+}
+
+require_clean_tree() {
+  [ -z "$(git status --porcelain)" ] || die "working tree has uncommitted changes; commit first"
+  if ahead=$(git rev-list --count '@{u}..HEAD' 2>/dev/null) && [ "$ahead" -gt 0 ]; then
+    echo "note: $ahead commit(s) not pushed yet" >&2
+  fi
+}
+
+check_blackout() {
+  local today now windows
+  today=$(date +%a) now=$(date +%H:%M)
+  # shellcheck disable=SC2016  # ${...} is Nix interpolation
+  windows=$(inv 'i: builtins.concatStringsSep "\n" (map (b: "${b.day} ${b.from} ${b.to}") i.blackout)')
+  while read -r day from to; do
+    [ -n "$day" ] || continue
+    if [ "$day" = "$today" ] && [[ ! "$now" < "$from" ]] && [[ "$now" < "$to" ]]; then
+      die "inside blackout window ($day $from-$to). Use --force if you really mean it"
+    fi
+  done <<< "$windows"
+}
+
+# Remote nix lives in the system profile once nix-darwin is active, and in the
+# installer's default profile before that.
+remote_nix_bin() {
+  ssh "$1" 'if [ -x /run/current-system/sw/bin/nix ]; then echo /run/current-system/sw/bin;
+            else echo /nix/var/nix/profiles/default/bin; fi'
+}
+
+build() {
+  nix build ".#darwinConfigurations.$1.system" --no-link --print-out-paths
+}
+
+deploy_host() {
+  local host=$1 target path nixbin
+  target="$user@${2:-$(address_of "$host")}"
+
+  step "$host: build"
+  path=$(build "$host")
+  echo "$path"
+
+  step "$host: copy to $target"
+  nixbin=$(remote_nix_bin "$target")
+  nix copy --substitute-on-destination \
+    --to "ssh-ng://$target?remote-program=$nixbin/nix-daemon" "$path"
+
+  step "$host: activate (sudo password for $user)"
+  # On the very first activation, move aside the /etc files the Nix installer
+  # wrote so nix-darwin can take them over (nix-darwin refuses otherwise).
+  ssh -t "$target" "set -e
+    sudo -v
+    if [ ! -e /run/current-system ]; then
+      for f in /etc/bashrc /etc/zshrc /etc/nix/nix.conf; do
+        [ -e \$f ] && sudo mv \$f \$f.before-nix-darwin
+      done
+    fi
+    sudo $nixbin/nix-env -p /nix/var/nix/profiles/system --set $path
+    sudo $path/activate"
+}
+
+cmd_deploy() {
+  local force=0 build_only=0 hosts=()
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --force) force=1 ;;
+      --build) build_only=1 ;;
+      --all) read -ra hosts <<< "$(all_hosts)" ;;
+      --role) shift; read -ra hosts <<< "$(hosts_with_role "${1:?--role needs a role}")" ;;
+      -*) die "unknown option $1" ;;
+      *) host_exists "$1" || die "no host '$1' in inventory.nix"; hosts+=("$1") ;;
+    esac
+    shift
+  done
+  [ ${#hosts[@]} -gt 0 ] || die "no hosts given (see header of $0)"
+
+  if [ $build_only = 1 ]; then
+    for h in "${hosts[@]}"; do step "$h: build"; build "$h"; done
+    return
+  fi
+
+  require_clean_tree
+  [ $force = 1 ] || check_blackout
+  for h in "${hosts[@]}"; do deploy_host "$h"; done
+}
+
+cmd_bootstrap() {
+  local host=${1:?usage: $0 bootstrap <host> <address>} addr=${2:?usage: $0 bootstrap <host> <address>}
+  local target="$user@$addr"
+  host_exists "$host" || die "add '$host' to inventory.nix (and commit) first"
+  require_clean_tree
+
+  step "Install deploy keys (password for $user on $addr)"
+  inv 'i: builtins.concatStringsSep "\n" i.deployKeys' |
+    ssh "$target" 'umask 077; mkdir -p ~/.ssh; cat > ~/.ssh/authorized_keys'
+
+  step "Register host key"
+  ssh "$target" cat /etc/ssh/ssh_host_ed25519_key.pub | awk '{print $1, $2}' > "secrets/host-keys/$host.pub"
+  if compgen -G 'secrets/*.age' > /dev/null; then
+    [ -f "$AGENIX_IDENTITY" ] || die "need the agenix admin key at $AGENIX_IDENTITY to re-key secrets"
+    (cd secrets && nix develop .. -c agenix -r -i "$AGENIX_IDENTITY")
+  fi
+  git add secrets
+  if ! git diff --cached --quiet; then
+    git commit -q -m "hosts: register $host" && echo "committed host key for $host (not pushed)"
+  fi
+
+  step "Install Nix (sudo password for $user)"
+  ssh -t "$target" "set -e
+    if [ ! -x /nix/var/nix/profiles/default/bin/nix ]; then
+      curl -sSfL https://nixos.org/nix/install -o /tmp/nix-install
+      sh /tmp/nix-install --daemon --yes
+    fi
+    if [ ! -e /run/current-system ] && ! grep -q '^trusted-users' /etc/nix/nix.conf; then
+      echo 'trusted-users = root $user' | sudo tee -a /etc/nix/nix.conf >/dev/null
+      sudo launchctl kickstart -k system/org.nixos.nix-daemon
+    fi"
+
+  # Use the address given: until activation sets its name, the Mac does not
+  # answer at <host>.local.
+  deploy_host "$host" "$addr"
+
+  step "Hand SSH keys over to nix-darwin"
+  # Keys now come from /etc/ssh/nix_authorized_keys.d; drop the bootstrap copy
+  # so inventory.nix is the only place access is granted.
+  ssh "$target" 'mv ~/.ssh/authorized_keys ~/.ssh/authorized_keys.bootstrap'
+  if ssh -o BatchMode=yes "$target" true; then
+    ssh "$target" 'rm ~/.ssh/authorized_keys.bootstrap'
+  else
+    ssh "$target" 'mv ~/.ssh/authorized_keys.bootstrap ~/.ssh/authorized_keys' || true
+    die "key login failed after activation; left ~/.ssh/authorized_keys in place"
+  fi
+
+  cat <<EOF
+
+$host is up. Remaining hands-on steps at the machine (see README):
+  - Reboot once so login items and the wallpaper apply.
+  - CG/Audio: install Desktop Video / Dante Virtual Soundcard, lower security
+    in Recovery if prompted, approve the system extensions, activate licences.
+  - Sign in to ProPresenter / Resolume licences.
+  - Push the registration commit: git push
+EOF
+}
+
+case ${1:-} in
+  bootstrap) shift; cmd_bootstrap "$@" ;;
+  ""|-h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *) cmd_deploy "$@" ;;
+esac
