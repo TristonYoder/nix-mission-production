@@ -77,6 +77,10 @@ Current fleet:
   (hold power → Options → Startup Security Utility) before macOS will load it.
 - Activate licences: Dante Virtual Soundcard, ProPresenter, Resolume.
 
+Expect a few "App Background Activity" notifications on a new Mac, one per
+newly installed background item. Later deploys don't repeat them: launch agents
+start through `/bin/sh` or `/usr/bin/open`, whose identity never changes.
+
 ### Vendor installers (Desktop Video, Dante Virtual Soundcard)
 
 These have no Homebrew cask, since the downloads sit behind a vendor form or
