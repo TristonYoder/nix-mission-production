@@ -24,6 +24,20 @@ export NIX_CONFIG="substituters = https://cache.nixos.org/"
 die() { echo "error: $*" >&2; exit 1; }
 step() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 
+# secrets/host-keys is the source of truth for each Mac's identity: once a
+# host is registered, connections are checked against it, never against the
+# deploy Mac's own known_hosts. No prompts, and a changed key is refused.
+KNOWN_HOSTS=$(mktemp)
+trap 'rm -f "$KNOWN_HOSTS"' EXIT
+SSH_PINNED=(-o "UserKnownHostsFile=$KNOWN_HOSTS" -o StrictHostKeyChecking=yes)
+export NIX_SSHOPTS="${SSH_PINNED[*]}"
+
+pin_host() { # <host> <address>
+  local f="secrets/host-keys/$1.pub"
+  [ -f "$f" ] || die "$1 has no registered host key; run ./deploy bootstrap first"
+  echo "$1.local,$2 $(cat "$f")" >> "$KNOWN_HOSTS"
+}
+
 inv() { nix eval --raw .#inventory --apply "$1"; }
 
 user=$(inv 'i: i.user')
@@ -58,7 +72,7 @@ check_blackout() {
 # Remote nix lives in the system profile once nix-darwin is active, and in the
 # installer's default profile before that.
 remote_nix_bin() {
-  ssh "$1" 'if [ -x /run/current-system/sw/bin/nix ]; then echo /run/current-system/sw/bin;
+  ssh "${SSH_PINNED[@]}" "$1" 'if [ -x /run/current-system/sw/bin/nix ]; then echo /run/current-system/sw/bin;
             else echo /nix/var/nix/profiles/default/bin; fi'
 }
 
@@ -77,8 +91,9 @@ build() {
 }
 
 deploy_host() {
-  local host=$1 target path nixbin
-  target="$user@${2:-$(address_of "$host")}"
+  local host=$1 addr=${2:-$(address_of "$1")} target path nixbin
+  target="$user@$addr"
+  pin_host "$host" "$addr"
 
   step "$host: build"
   path=$(build "$host")
@@ -95,7 +110,7 @@ deploy_host() {
   # see modules/production.nix); it falls back to the password prompt.
   # On the very first activation, move aside the /etc files the Nix installer
   # wrote so nix-darwin can take them over (nix-darwin refuses otherwise).
-  ssh -t -A "$target" "set -e
+  ssh "${SSH_PINNED[@]}" -t -A "$target" "set -e
     sudo -v
     if [ ! -e /run/current-system ]; then
       for f in /etc/bashrc /etc/zshrc /etc/nix/nix.conf; do
@@ -191,8 +206,10 @@ cmd_bootstrap() {
     git commit -q -m "hosts: register $host" && echo "committed host key for $host (not pushed)"
   fi
 
+  pin_host "$host" "$addr"
+
   step "Install Command Line Tools and Nix (sudo password for $user)"
-  ssh -t "$target" "bash -c $(printf %q "$PREPARE_MAC") _ $user"
+  ssh "${SSH_PINNED[@]}" -t "$target" "bash -c $(printf %q "$PREPARE_MAC") _ $user"
 
   # Use the address given: until activation sets its name, the Mac does not
   # answer at <host>.local.
@@ -201,11 +218,11 @@ cmd_bootstrap() {
   step "Hand SSH keys over to nix-darwin"
   # Keys now come from /etc/ssh/nix_authorized_keys.d; drop the bootstrap copy
   # so inventory.nix is the only place access is granted.
-  ssh "$target" 'mv ~/.ssh/authorized_keys ~/.ssh/authorized_keys.bootstrap'
-  if ssh -o BatchMode=yes "$target" true; then
-    ssh "$target" 'rm ~/.ssh/authorized_keys.bootstrap'
+  ssh "${SSH_PINNED[@]}" "$target" 'mv ~/.ssh/authorized_keys ~/.ssh/authorized_keys.bootstrap'
+  if ssh "${SSH_PINNED[@]}" -o BatchMode=yes "$target" true; then
+    ssh "${SSH_PINNED[@]}" "$target" 'rm ~/.ssh/authorized_keys.bootstrap'
   else
-    ssh "$target" 'mv ~/.ssh/authorized_keys.bootstrap ~/.ssh/authorized_keys' || true
+    ssh "${SSH_PINNED[@]}" "$target" 'mv ~/.ssh/authorized_keys.bootstrap ~/.ssh/authorized_keys' || true
     die "key login failed after activation; left ~/.ssh/authorized_keys in place"
   fi
 
