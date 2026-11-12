@@ -31,8 +31,10 @@ let
 
     desktop-video.installer = {
       url = "https://www.blackmagicdesign.com/support/family/capture-and-playback";
-      file = null;
-      hash = null;
+      # "Install Desktop Video 16.5.pkg" from the 16.5 .dmg, renamed (Nix store
+      # names can't contain spaces).
+      file = "Desktop_Video_16.5.pkg";
+      hash = "sha256-LBhZvK3WjZS55isFnWSfl/OQSeXUsawrcPMk0gvq64Y=";
       check = "/Applications/Blackmagic Desktop Video";
     };
 
