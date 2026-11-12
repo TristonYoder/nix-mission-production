@@ -12,6 +12,7 @@ the deploy keys builds every machine and pushes it over SSH.
 | `modules/production.nix` | Baseline for every Mac: name, operator account, key-only SSH, never sleep, no auto-updates. |
 | `modules/apps.nix` | App catalog: the only place that knows how an app is installed. |
 | `modules/wallpaper.nix` | Wallpaper with an info card: location, function, hostname, IPs, boot time, support number. |
+| `modules/menubar.nix` | Machine name in the menu bar (SwiftBar), card details in its dropdown. |
 | `modules/wifi.nix`, `modules/autologin.nix` | Use `secrets/`; do nothing until the secret exists. |
 | `secrets/` | agenix secrets and host keys. |
 | `deploy` | Build, copy, activate. Also bootstraps new Macs. |
@@ -68,7 +69,8 @@ Current fleet:
 
 **At the Mac again:**
 
-- Reboot once so the login items and wallpaper apply.
+- Reboot once so the login items apply. Then ⌘-drag the machine name in the
+  menu bar next to the clock (macOS remembers it).
 - CG/Audio: approve the Desktop Video and Dante system extensions when prompted.
   Desktop Video's kernel extension needs **Reduced Security** set in Recovery
   (hold power → Options → Startup Security Utility) before macOS will load it.
