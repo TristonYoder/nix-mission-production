@@ -1,6 +1,6 @@
 # SwiftBar plugin: the machine's name in the menu bar, and the same details as
 # the wallpaper card in its dropdown. Prepended by modules/menubar.nix with
-# machine-info.sh and: LABEL TITLE LOCATION FUNCTION SUPPORT REVISION.
+# machine-info.sh and: LABEL TITLE LOCATION FUNCTION SUPPORT_FILE REVISION.
 #
 # Runs only when the menu opens; clicking the hostname or an IP copies it.
 #
@@ -19,6 +19,9 @@ fi
 
 self="${SWIFTBAR_PLUGIN_PATH:-$0}"
 copy() { echo "$1 | bash=$self param1=copy param2=$2 terminal=false tooltip=\"Click to copy\""; }
+
+# The support number is decrypted by agenix at activation; absent = no line.
+SUPPORT="$(cat "$SUPPORT_FILE" 2>/dev/null || true)"
 
 up_min=$(( up_sec / 60 ))
 uptime="$((up_min / 1440))d $((up_min / 60 % 24))h $((up_min % 60))m"

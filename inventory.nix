@@ -24,9 +24,10 @@
   ];
 
   # Shared text on every wallpaper's info card (modules/wallpaper.nix).
+  # The support number lives in secrets/support.age, not here: edit it with
+  # agenix so the real line is never published for spam callers to scrape.
   wallpaper = {
     title = "Mission Church Production";
-    support = "REDACTED";
   };
 
   # role:  file in ./roles

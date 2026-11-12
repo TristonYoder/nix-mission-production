@@ -1,7 +1,7 @@
 # Draws the info card onto the main screen's wallpaper. Prepended by
 # modules/wallpaper.nix with machine-info.sh and: BACKDROP (other screens)
-# BASE (main screen) CARD_FONT CARD_FONT_BOLD TITLE LOCATION FUNCTION SUPPORT
-# REVISION (empty = left out). Also draws a faint hostname/build tag in the
+# BASE (main screen) CARD_FONT CARD_FONT_BOLD TITLE LOCATION FUNCTION
+# SUPPORT_FILE REVISION (empty = left out). Also draws a faint hostname/build tag in the
 # bottom-right corner, beside the Dock, so it shows up in screenshots.
 #
 # Runs at login and every minute after; it only redraws when the card's text
@@ -10,6 +10,9 @@
 
 state="$HOME/Library/Caches/production-wallpaper"
 mkdir -p "$state"
+
+# The support number is decrypted by agenix at activation; absent = no line.
+SUPPORT="$(cat "$SUPPORT_FILE" 2>/dev/null || true)"
 
 row() { printf '%-9s %s' "$1" "$2"; }   # monospace: values line up
 
