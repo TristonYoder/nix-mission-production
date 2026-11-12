@@ -23,15 +23,27 @@
     { day = "Sun"; from = "06:00"; to = "13:00"; }
   ];
 
+  # Shared text on every wallpaper's info card (modules/wallpaper.nix).
+  wallpaper = {
+    title = "Mission Church Production";
+    support = "REDACTED";
+  };
+
   # role:  file in ./roles
   # apps:  extra apps from the catalog in modules/apps.nix (added to the role's)
-  # label: text on the wallpaper (default: name upper-cased, "-" -> " ")
+  # label: computer name (default: name upper-cased, "-" -> " ")
+  # location, function: lines on the wallpaper card (function defaults to label)
   # config: optional inline nix-darwin module for one-off overrides
   # Machines are reached at <name>.local unless `address` is set.
   hosts = {
     cg-1 = { role = "cg"; apps = [ "propresenter" ]; };
     cg-2 = { role = "cg"; apps = [ "propresenter" ]; };
-    cg-3 = { role = "cg"; apps = [ "resolume" ]; };
+    cg-3 = {
+      role = "cg";
+      apps = [ "resolume" ];
+      location = "West Auditorium";
+      function = "CG 3 - Resolume";
+    };
     cg-4 = { role = "cg"; apps = [ "propresenter" "spotify" ]; };
     audio = { role = "audio"; };
     lighting = { role = "lighting"; };

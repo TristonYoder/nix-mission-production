@@ -45,6 +45,7 @@
               system.configurationRevision = self.rev or self.dirtyRev or null;
             }
             (nixpkgs.lib.optionalAttrs (host ? label) { production.label = host.label; })
+            { production.wallpaper = builtins.intersectAttrs { location = null; function = null; } host; }
           ] ++ nixpkgs.lib.optional (host ? config) host.config;
         };
     in
