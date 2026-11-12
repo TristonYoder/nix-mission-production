@@ -51,6 +51,10 @@ fi
 # every render gets a new file name.
 
 width=1100
+# One margin (4K px) for the corner tag's right and bottom, and the card's
+# right edge. The card sits one margin above the tag.
+margin=72
+tag_size=34
 # Small corner tag right of the Dock, so screenshots show which Mac and build.
 tag="$host${REVISION:+ · $REVISION}"
 args=(-background none -fill white -font "$CARD_FONT_BOLD" -pointsize 50
@@ -69,9 +73,9 @@ magick "$BASE" \
      \( +clone -alpha transparent -fill 'rgba(0,0,0,0.62)' \
         -draw 'roundrectangle 0,0 %[fx:w-1],%[fx:h-1] 32,32' \) \
      +swap -composite \) \
-  -gravity southeast -geometry +260+200 -composite \
-  -font "$CARD_FONT" -pointsize 30 -fill 'rgba(255,255,255,0.5)' \
-  -annotate +260+60 "$tag" \
+  -gravity southeast -geometry "+$margin+$((margin * 2 + tag_size))" -composite \
+  -font "$CARD_FONT" -pointsize "$tag_size" -fill 'rgba(255,255,255,0.5)' \
+  -annotate "+$margin+$margin" "$tag" \
   -depth 8 "$out"
 
 # Screen 0 has the menu bar. Each screen is set exactly once: setting "all"
