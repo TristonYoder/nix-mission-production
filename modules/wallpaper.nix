@@ -26,7 +26,7 @@ let
         else "${cfg.background} -resize 3840x2160^ -gravity center -extent 3840x2160"} \
         \( ${../assets/logo.png} -background white -alpha remove -colorspace gray -negate \
            -resize 520x520 -alpha copy -fill white -colorize 100 \) \
-        -gravity center -geometry +0-170 -composite \
+        -gravity center -geometry +0-170 -composite -depth 8 \
         $out
     '';
 
@@ -38,7 +38,7 @@ let
     ''
       magick ${backdrop} -gravity center -font ${../assets/fonts/ArchivoExpanded-Black.ttf} \
         -pointsize 160 -kerning 4 -fill white \
-        -annotate +0+260 ${lib.escapeShellArg config.production.label} \
+        -annotate +0+260 ${lib.escapeShellArg config.production.label} -depth 8 \
         $out
     '';
 
@@ -55,7 +55,7 @@ let
       FUNCTION=${lib.escapeShellArg cfg.function}
       SUPPORT=${lib.escapeShellArg (toString cfg.support)}
       REVISION=${lib.escapeShellArg (if rev == null then "" else lib.substring 0 7 rev)}
-    '' + builtins.readFile ./wallpaper-card.sh;
+    '' + builtins.readFile ./machine-info.sh + builtins.readFile ./wallpaper-card.sh;
   };
 in
 {
