@@ -37,9 +37,17 @@ system="$(row Booted "$booted")"$'\n'"$(row Uptime "$uptime")"$'\n'"$(row System
 sections+=("$system")
 [ -n "$SUPPORT" ] && sections+=("$(row Support "$SUPPORT")")
 
-text="$TITLE"$'\n'"$(printf '%s\n' "${sections[@]}")"
+# Main screen's shape. The wallpaper is drawn to the same aspect ratio, so
+# macOS scales it without cropping and the corner layout keeps its margins on
+# any display. Falls back to 16:9.
+read -r screen_w screen_h < <(system_profiler SPDisplaysDataType 2>/dev/null |
+  awk '/Resolution:/ { r = $2 " " $4 } /Main Display: Yes/ { print r; exit }') || true
+[ -n "${screen_h:-}" ] || { screen_w=16; screen_h=9; }
+
+# Redraw key: what's on the card plus the screen shape.
+text="$TITLE"$'\n'"$(printf '%s\n' "${sections[@]}")"$'\n'"screen ${screen_w}x${screen_h}"
 current="$(cat "$state/current" 2>/dev/null || true)"
-# Skip unless the text changed or the main screen isn't showing our card
+# Skip unless the text or screen changed, or the main screen isn't showing our card
 # (someone changed it, or macOS dropped it).
 if [ "$text" = "$(cat "$state/text" 2>/dev/null)" ] && [ -e "$current" ] &&
    [ "$(desktoppr 0)" = "$current" ]; then
@@ -47,11 +55,15 @@ if [ "$text" = "$(cat "$state/text" 2>/dev/null)" ] && [ -e "$current" ] &&
 fi
 
 # --- Render -------------------------------------------------------------------
-# Card is drawn at 4K scale to match BASE. macOS caches wallpapers by path, so
-# every render gets a new file name.
+# Everything is drawn on a canvas 2160 px tall (BASE's height), as wide as the
+# screen's aspect needs: BASE is scaled to cover it and centre-cropped, so the
+# logo and name stay centred and sizes stay relative to screen height. macOS
+# caches wallpapers by path, so every render gets a new file name.
+canvas_h=2160
+canvas_w=$(( canvas_h * screen_w / screen_h ))
 
 width=1100
-# One margin (4K px) for the corner tag's right and bottom, and the card's
+# One margin (canvas px) for the corner tag's right and bottom, and the card's
 # right edge. The card sits one margin above the tag.
 margin=72
 tag_size=34
@@ -67,7 +79,8 @@ for s in "${sections[@]}"; do
 done
 
 out="$state/wallpaper-$(date +%s).png"
-magick "$BASE" \
+magick "$BASE" -resize "${canvas_w}x${canvas_h}^" -gravity center \
+  -extent "${canvas_w}x${canvas_h}" +gravity \
   \( "${args[@]}" -append \
      -bordercolor none -border 56 \
      \( +clone -alpha transparent -fill 'rgba(0,0,0,0.62)' \
