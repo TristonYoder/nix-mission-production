@@ -83,9 +83,15 @@ in
     };
   };
 
-  config.launchd.user.agents.wallpaper.serviceConfig = {
-    ProgramArguments = [ "${render}/bin/production-wallpaper" ];
-    RunAtLoad = true;
-    StartInterval = 60;
+  # `command` runs it through /bin/sh. macOS's background-item check keys on
+  # the executable's code identity: a store path changes every deploy and
+  # pops an "App Background Activity" notification each time; /bin/sh never
+  # changes.
+  config.launchd.user.agents.wallpaper = {
+    command = "${render}/bin/production-wallpaper";
+    serviceConfig = {
+      RunAtLoad = true;
+      StartInterval = 60;
+    };
   };
 }
