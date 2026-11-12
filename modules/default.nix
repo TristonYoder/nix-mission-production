@@ -6,5 +6,6 @@
     ./menubar.nix
     ./wifi.nix
     ./autologin.nix
+    ./cleanup.nix
   ];
 }
