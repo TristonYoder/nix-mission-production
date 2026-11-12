@@ -11,7 +11,7 @@ the deploy keys builds every machine and pushes it over SSH.
 | `roles/` | What a kind of machine needs (`cg`, `audio`, `lighting`, `director`). |
 | `modules/production.nix` | Baseline for every Mac: name, operator account, key-only SSH, never sleep, no auto-updates. |
 | `modules/apps.nix` | App catalog: the only place that knows how an app is installed. |
-| `modules/wallpaper.nix` | Wallpaper showing the machine's label (e.g. "CG 3"). |
+| `modules/wallpaper.nix` | Wallpaper with an info card: location, function, hostname, IPs, boot time, support number. |
 | `modules/wifi.nix`, `modules/autologin.nix` | Use `secrets/`; do nothing until the secret exists. |
 | `secrets/` | agenix secrets and host keys. |
 | `deploy` | Build, copy, activate. Also bootstraps new Macs. |
@@ -110,8 +110,10 @@ While `file = null`, an app is unpinned: activation only warns if it's missing.
   `inventory.nix`.
 - **WiFi off on a machine** (for example, to keep Dante on wired only):
   `config = { production.wifi.mode = "off"; };`
-- **Wallpaper background image:** set `production.wallpaper.background` to a path;
-  the label is drawn on top.
+- **Wallpaper:** commit the background as `assets/wallpaper.jpg` (used by every
+  Mac). Card text comes from `wallpaper` and each host's `location`/`function` in
+  `inventory.nix`. The card is drawn on the main screen only, at login, and
+  redrawn within a minute when an IP changes.
 
 ## Secrets
 
