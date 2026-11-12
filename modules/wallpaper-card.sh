@@ -1,7 +1,7 @@
 # Draws the info card onto the main screen's wallpaper. Prepended by
-# modules/wallpaper.nix with: BACKDROP (other screens) BASE (main screen)
-# CARD_FONT CARD_FONT_BOLD TITLE LOCATION FUNCTION SUPPORT REVISION
-# (empty = line left out).
+# modules/wallpaper.nix with machine-info.sh and: BACKDROP (other screens)
+# BASE (main screen) CARD_FONT CARD_FONT_BOLD TITLE LOCATION FUNCTION SUPPORT
+# REVISION (empty = line left out).
 #
 # Runs at login and every minute after; it only redraws when the card's text
 # changes (new IP, reboot, deploy, uptime ticking over an hour), so nothing
@@ -10,31 +10,18 @@
 state="$HOME/Library/Caches/production-wallpaper"
 mkdir -p "$state"
 
-# --- Live values --------------------------------------------------------------
-
 row() { printf '%-9s %s' "$1" "$2"; }   # monospace: values line up
 
-host="$(scutil --get LocalHostName).local"
-
-# One row per interface with an address, named the way System Settings names
-# it: "IP        10.0.0.12 (Ethernet Adapter (en3))".
-ips=""
-while IFS='|' read -r port dev; do
-  addr="$(ipconfig getifaddr "$dev" 2>/dev/null || true)"
-  [ -n "$addr" ] && ips+="${ips:+$'\n'}$(row IP "$addr ($port)")"
-done < <(networksetup -listallhardwareports | awk -F': ' '
-  /^Hardware Port:/ { port = $2 }
-  /^Device:/        { print port "|" $2 }')
-[ -n "$ips" ] || ips="$(row IP none)"
-
-boot_sec="$(sysctl -n kern.boottime | sed -E 's/.*sec = ([0-9]+),.*/\1/')"
-booted="$(date -r "$boot_sec" '+%a %b %-d, %-I:%M %p')"
-# Whole hours only, so the card redraws hourly rather than every minute.
-up_h=$(( ($(date +%s) - boot_sec) / 3600 ))
+# Live values come from machine-info.sh (prepended). Uptime in whole hours
+# only, so the card redraws hourly rather than every minute.
+up_h=$(( up_sec / 3600 ))
 if [ "$up_h" -ge 24 ]; then uptime="$((up_h / 24))d $((up_h % 24))h"
 elif [ "$up_h" -ge 1 ]; then uptime="${up_h}h"
 else uptime="<1h"; fi
-macos="macOS $(sw_vers -productVersion)"
+
+ip_rows=""
+for ip in "${ips[@]}"; do ip_rows+="${ip_rows:+$'\n'}$(row IP "$ip")"; done
+[ -n "$ip_rows" ] || ip_rows="$(row IP none)"
 
 # --- Card text ----------------------------------------------------------------
 
@@ -43,14 +30,18 @@ who=""
 [ -n "$LOCATION" ] && who="$(row Location "$LOCATION")"
 [ -n "$FUNCTION" ] && who+="${who:+$'\n'}$(row Function "$FUNCTION")"
 [ -n "$who" ] && sections+=("$who")
-sections+=("$(row Hostname "$host")"$'\n'"$ips")
+sections+=("$(row Hostname "$host")"$'\n'"$ip_rows")
 system="$(row Booted "$booted")"$'\n'"$(row Uptime "$uptime")"$'\n'"$(row System "$macos")"
 [ -n "$REVISION" ] && system+=" · $REVISION"
 sections+=("$system")
 [ -n "$SUPPORT" ] && sections+=("$(row Support "$SUPPORT")")
 
 text="$TITLE"$'\n'"$(printf '%s\n' "${sections[@]}")"
-if [ "$text" = "$(cat "$state/text" 2>/dev/null)" ] && [ -e "$(cat "$state/current" 2>/dev/null)" ]; then
+current="$(cat "$state/current" 2>/dev/null || true)"
+# Skip unless the text changed or the main screen isn't showing our card
+# (someone changed it, or macOS dropped it).
+if [ "$text" = "$(cat "$state/text" 2>/dev/null)" ] && [ -e "$current" ] &&
+   [ "$(desktoppr 0)" = "$current" ]; then
   exit 0
 fi
 
@@ -76,12 +67,14 @@ magick "$BASE" \
         -draw 'roundrectangle 0,0 %[fx:w-1],%[fx:h-1] 32,32' \) \
      +swap -composite \) \
   -gravity southeast -geometry +260+200 -composite \
-  "$out"
+  -depth 8 "$out"
 
-desktoppr all "$BACKDROP"
-desktoppr main "$out"
+# Screen 0 has the menu bar. Each screen is set exactly once: setting "all"
+# then "main" races, since macOS applies them asynchronously.
+desktoppr 0 "$out"
+i=1
+while desktoppr "$i" "$BACKDROP" 2>/dev/null; do i=$((i + 1)); done
 
-old="$(cat "$state/current" 2>/dev/null || true)"
-[ -n "$old" ] && [ "$old" != "$out" ] && rm -f "$old"
+[ -n "$current" ] && [ "$current" != "$out" ] && rm -f "$current"
 printf '%s' "$out" > "$state/current"
 printf '%s' "$text" > "$state/text"
