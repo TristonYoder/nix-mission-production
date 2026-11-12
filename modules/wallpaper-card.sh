@@ -1,7 +1,8 @@
 # Draws the info card onto the main screen's wallpaper. Prepended by
 # modules/wallpaper.nix with machine-info.sh and: BACKDROP (other screens)
 # BASE (main screen) CARD_FONT CARD_FONT_BOLD TITLE LOCATION FUNCTION SUPPORT
-# REVISION (empty = line left out).
+# REVISION (empty = left out). Also draws a faint hostname/build tag in the
+# bottom-right corner, beside the Dock, so it shows up in screenshots.
 #
 # Runs at login and every minute after; it only redraws when the card's text
 # changes (new IP, reboot, deploy, uptime ticking over an hour), so nothing
@@ -50,6 +51,8 @@ fi
 # every render gets a new file name.
 
 width=1100
+# Small corner tag right of the Dock, so screenshots show which Mac and build.
+tag="$host${REVISION:+ · $REVISION}"
 args=(-background none -fill white -font "$CARD_FONT_BOLD" -pointsize 50
       -size "${width}x" "caption:$TITLE" -font "$CARD_FONT" -pointsize 38)
 for s in "${sections[@]}"; do
@@ -67,6 +70,8 @@ magick "$BASE" \
         -draw 'roundrectangle 0,0 %[fx:w-1],%[fx:h-1] 32,32' \) \
      +swap -composite \) \
   -gravity southeast -geometry +260+200 -composite \
+  -font "$CARD_FONT" -pointsize 30 -fill 'rgba(255,255,255,0.5)' \
+  -annotate +260+60 "$tag" \
   -depth 8 "$out"
 
 # Screen 0 has the menu bar. Each screen is set exactly once: setting "all"
