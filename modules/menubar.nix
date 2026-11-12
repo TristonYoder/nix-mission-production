@@ -16,7 +16,7 @@ let
       TITLE=${lib.escapeShellArg card.title}
       LOCATION=${lib.escapeShellArg (toString card.location)}
       FUNCTION=${lib.escapeShellArg card.function}
-      SUPPORT=${lib.escapeShellArg (toString card.support)}
+      SUPPORT_FILE=${lib.escapeShellArg config.age.secrets.support.path}
       REVISION=${lib.escapeShellArg (if rev == null then "" else lib.substring 0 7 rev)}
     '' + builtins.readFile ./machine-info.sh + builtins.readFile ./menubar-plugin.sh;
   };

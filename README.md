@@ -11,7 +11,7 @@ the deploy keys builds every machine and pushes it over SSH.
 | `roles/` | What a kind of machine needs (`cg`, `audio`, `lighting`, `director`). |
 | `modules/production.nix` | Baseline for every Mac: name, operator account, key-only SSH, never sleep, no auto-updates. |
 | `modules/apps.nix` | App catalog: the only place that knows how an app is installed. |
-| `modules/wallpaper.nix` | Wallpaper with an info card: location, function, hostname, IPs, boot time, support number. |
+| `modules/wallpaper.nix` | Wallpaper with an info card: location, function, hostname, IPs, boot time, support number (from `secrets/support.age`). |
 | `modules/menubar.nix` | Machine name in the menu bar (SwiftBar), card details in its dropdown. |
 | `modules/cleanup.nix` | Deletes preinstalled apps (GarageBand, iMovie, iWork) and vendor extras, hides desktop widgets. The Dock shows only the machine's apps. |
 | `modules/wifi.nix`, `modules/autologin.nix` | Use `secrets/`; do nothing until the secret exists. |
@@ -121,8 +121,9 @@ While `file = null`, an app is unpinned: activation only warns if it's missing.
   `config = { production.wifi.mode = "off"; };`
 - **Wallpaper:** commit the background as `assets/wallpaper.jpg` (used by every
   Mac). Card text comes from `wallpaper` and each host's `location`/`function` in
-  `inventory.nix`. The card is drawn on the main screen only, at login, and
-  redrawn within a minute when an IP changes.
+  `inventory.nix`; the support number comes from `secrets/support.age`. The card
+  is drawn on the main screen only, at login, and redrawn within a minute when an
+  IP changes.
 
 ## Secrets
 
@@ -133,11 +134,16 @@ Every secret is readable by the admin key and every registered host.
 |---|---|
 | `wifi.age` | `SSID=...` and `PSK=...` lines |
 | `autologin-password.age` | the operator password (enables auto-login) |
+| `support.age` | the support phone number shown on the wallpaper and menu bar |
 
 ```bash
 cd secrets
 nix develop .. -c agenix -e wifi.age -i ~/.ssh/agenix
+nix develop .. -c agenix -e support.age -i ~/.ssh/agenix
 ```
+
+The support number is encrypted so the real line isn't published for spam
+callers to scrape; edit `support.age` with the same command when it changes.
 
 The admin private key is expected at `~/.ssh/agenix`; override it with
 `AGENIX_IDENTITY`.

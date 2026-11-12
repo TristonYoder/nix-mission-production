@@ -1,3 +1,8 @@
 result
 result-*
 .direnv/
+.claude/
+CLAUDE.md
+.DS_Store
+*.swp
+*~

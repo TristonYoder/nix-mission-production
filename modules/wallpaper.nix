@@ -53,7 +53,7 @@ let
       TITLE=${lib.escapeShellArg cfg.title}
       LOCATION=${lib.escapeShellArg (toString cfg.location)}
       FUNCTION=${lib.escapeShellArg cfg.function}
-      SUPPORT=${lib.escapeShellArg (toString cfg.support)}
+      SUPPORT_FILE=${lib.escapeShellArg config.age.secrets.support.path}
       REVISION=${lib.escapeShellArg (if rev == null then "" else lib.substring 0 7 rev)}
     '' + builtins.readFile ./machine-info.sh + builtins.readFile ./wallpaper-card.sh;
   };
@@ -76,10 +76,6 @@ in
     function = lib.mkOption {
       type = lib.types.str;
       default = config.production.label;
-    };
-    support = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = inventory.wallpaper.support;
     };
   };
 
