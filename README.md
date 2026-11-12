@@ -13,6 +13,7 @@ the deploy keys builds every machine and pushes it over SSH.
 | `modules/apps.nix` | App catalog: the only place that knows how an app is installed. |
 | `modules/wallpaper.nix` | Wallpaper with an info card: location, function, hostname, IPs, boot time, support number. |
 | `modules/menubar.nix` | Machine name in the menu bar (SwiftBar), card details in its dropdown. |
+| `modules/cleanup.nix` | Deletes preinstalled apps (GarageBand, iMovie, iWork) and vendor extras, hides desktop widgets. The Dock shows only the machine's apps. |
 | `modules/wifi.nix`, `modules/autologin.nix` | Use `secrets/`; do nothing until the secret exists. |
 | `secrets/` | agenix secrets and host keys. |
 | `deploy` | Build, copy, activate. Also bootstraps new Macs. |
@@ -108,6 +109,8 @@ While `file = null`, an app is unpinned: activation only warns if it's missing.
 
 - **Add an app:** add an entry to the catalog in `modules/apps.nix`, then list it in
   a role or in a host's `apps`.
+- **Remove something everywhere:** add its path to `production.remove` in
+  `modules/cleanup.nix` (or to an app's `remove` in the catalog).
 - **One-off tweak for one machine:** give the host a `config = { ... };` module in
   `inventory.nix`.
 - **WiFi off on a machine** (for example, to keep Dante on wired only):

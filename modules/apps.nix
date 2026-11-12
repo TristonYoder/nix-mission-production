@@ -12,51 +12,76 @@
 #                marker  optional file that puts the vendor's installer in silent
 #                        mode, created only while it runs
 #   launch:    app name passed to `open -a` at login
+#   dock:      app bundle shown in the Dock (apps without one stay off it)
+#   remove:    paths the vendor installs that we don't want (see
+#              modules/cleanup.nix)
 { config, lib, pkgs, ... }:
 
 let
   catalog = {
-    chrome.cask = "google-chrome";
-    spotify.cask = "spotify";
+    chrome = {
+      cask = "google-chrome";
+      dock = "/Applications/Google Chrome.app";
+    };
+
+    spotify = {
+      cask = "spotify";
+      dock = "/Applications/Spotify.app";
+    };
 
     propresenter = {
       cask = "propresenter";
       launch = "ProPresenter";
+      dock = "/Applications/ProPresenter.app";
     };
 
     resolume = {
       cask = "resolume-arena";
       launch = "Arena";
+      dock = "/Applications/Resolume Arena/Arena.app";
     };
 
-    dante-controller.cask = "dante-controller";
+    dante-controller = {
+      cask = "dante-controller";
+      dock = "/Applications/Dante Controller.app";
+    };
 
     swiftbar = {
       cask = "swiftbar";
       launch = "SwiftBar";
     };
 
-    desktop-video.installer = {
-      url = "https://www.blackmagicdesign.com/support/family/capture-and-playback";
-      # "Install Desktop Video 16.5.pkg" from the 16.5 .dmg, renamed (Nix store
-      # names can't contain spaces).
-      file = "Desktop_Video_16.5.pkg";
-      hash = "sha256-LBhZvK3WjZS55isFnWSfl/OQSeXUsawrcPMk0gvq64Y=";
-      check = "/Applications/Blackmagic Desktop Video";
+    desktop-video = {
+      dock = "/Applications/Blackmagic Desktop Video/Desktop Video Setup.app";
+      # Its updater prompts operators to update drivers; versions change only
+      # through the pin below.
+      remove = [ "/Library/LaunchAgents/com.blackmagic-design.DesktopVideoUpdater.plist" ];
+      installer = {
+        url = "https://www.blackmagicdesign.com/support/family/capture-and-playback";
+        # "Install Desktop Video 16.5.pkg" from the 16.5 .dmg, renamed (Nix store
+        # names can't contain spaces).
+        file = "Desktop_Video_16.5.pkg";
+        hash = "sha256-LBhZvK3WjZS55isFnWSfl/OQSeXUsawrcPMk0gvq64Y=";
+        check = "/Applications/Blackmagic Desktop Video";
+      };
     };
 
-    dante-virtual-soundcard.installer = {
-      url = "https://my.audinate.com/";
-      # DanteVirtualSoundcard.pkg from DVS-4.5.2.3_macos.dmg, renamed.
-      file = "DanteVirtualSoundcard_4.5.2.3.pkg";
-      hash = "sha256-ZPehzUX0TfvNgSz8+So3BKXNBRLPoa4NDJrySoBHH48=";
-      check = "/Applications/Dante Virtual Soundcard.app";
-      # From the .dmg's own .scripts/dvs_silent_install.sh.
-      marker = "/tmp/DVS_silent_install";
+    dante-virtual-soundcard = {
+      dock = "/Applications/Dante Virtual Soundcard.app";
+      installer = {
+        url = "https://my.audinate.com/";
+        # DanteVirtualSoundcard.pkg from DVS-4.5.2.3_macos.dmg, renamed.
+        file = "DanteVirtualSoundcard_4.5.2.3.pkg";
+        hash = "sha256-ZPehzUX0TfvNgSz8+So3BKXNBRLPoa4NDJrySoBHH48=";
+        check = "/Applications/Dante Virtual Soundcard.app";
+        # From the .dmg's own .scripts/dvs_silent_install.sh.
+        marker = "/tmp/DVS_silent_install";
+      };
     };
   };
 
-  selected = lib.genAttrs (lib.unique config.production.apps) (name: catalog.${name});
+  names = lib.unique config.production.apps;
+  selected = lib.genAttrs names (name: catalog.${name});
   pick = field: lib.filterAttrs (_: app: app ? ${field}) selected;
 
   # The .pkg enters the deploy Mac's store via `nix-store --add-fixed` (done by
@@ -105,6 +130,14 @@ in
 
   config = {
     homebrew.casks = lib.mapAttrsToList (_: app: app.cask) (pick "cask");
+
+    # Only this machine's apps, in the order they're listed. Apple's own apps
+    # can't be deleted, so keeping them off the Dock is the cleanup for those.
+    system.defaults.dock.persistent-apps =
+      lib.concatMap (name: lib.optional (catalog.${name} ? dock) catalog.${name}.dock) names
+      ++ [ "/System/Applications/System Settings.app" ];
+
+    production.remove = lib.concatLists (lib.mapAttrsToList (_: app: app.remove) (pick "remove"));
 
     launchd.user.agents = lib.mapAttrs' (name: app:
       lib.nameValuePair "launch-${name}" {
