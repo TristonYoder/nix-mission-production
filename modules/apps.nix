@@ -31,6 +31,11 @@ let
 
     dante-controller.cask = "dante-controller";
 
+    swiftbar = {
+      cask = "swiftbar";
+      launch = "SwiftBar";
+    };
+
     desktop-video.installer = {
       url = "https://www.blackmagicdesign.com/support/family/capture-and-playback";
       # "Install Desktop Video 16.5.pkg" from the 16.5 .dmg, renamed (Nix store
