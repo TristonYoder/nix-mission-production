@@ -9,6 +9,8 @@
 #                      the deploy Mac (null = not pinned yet: warn only)
 #                hash  `nix hash file <pkg>`
 #                check path that exists once installed (used while unpinned)
+#                marker  optional file that puts the vendor's installer in silent
+#                        mode, created only while it runs
 #   launch:    app name passed to `open -a` at login
 { config, lib, pkgs, ... }:
 
@@ -40,9 +42,12 @@ let
 
     dante-virtual-soundcard.installer = {
       url = "https://my.audinate.com/";
-      file = null;
-      hash = null;
+      # DanteVirtualSoundcard.pkg from DVS-4.5.2.3_macos.dmg, renamed.
+      file = "DanteVirtualSoundcard_4.5.2.3.pkg";
+      hash = "sha256-ZPehzUX0TfvNgSz8+So3BKXNBRLPoa4NDJrySoBHH48=";
       check = "/Applications/Dante Virtual Soundcard.app";
+      # From the .dmg's own .scripts/dvs_silent_install.sh.
+      marker = "/tmp/DVS_silent_install";
     };
   };
 
@@ -68,9 +73,13 @@ let
         echo "warning: ${name} is not installed and not pinned in modules/apps.nix. Download it from ${i.url}" >&2
       fi
     '' else
-      let pkg = fetchInstaller i; in ''
+      let
+        pkg = fetchInstaller i;
+        marker = i.marker or null;
+      in ''
         if [ "$(cat /var/db/production-installers/${name} 2>/dev/null)" != ${pkg} ]; then
           echo "installing ${i.file}..."
+          ${lib.optionalString (marker != null) "touch ${lib.escapeShellArg marker}"}
           if installer -pkg ${pkg} -target /; then
             mkdir -p /var/db/production-installers
             echo ${pkg} > /var/db/production-installers/${name}
@@ -78,6 +87,7 @@ let
           else
             echo "error: installing ${i.file} failed" >&2
           fi
+          ${lib.optionalString (marker != null) "rm -f ${lib.escapeShellArg marker}"}
         fi
       '';
 in
