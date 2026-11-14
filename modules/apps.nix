@@ -51,6 +51,11 @@ let
       launch = "SwiftBar";
     };
 
+    # Remote support. Its launchd service and settings: modules/rustdesk.nix.
+    rustdesk = {
+      cask = "rustdesk";
+    };
+
     desktop-video = {
       dock = "/Applications/Blackmagic Desktop Video/Desktop Video Setup.app";
       # Its updater prompts operators to update drivers; versions change only
