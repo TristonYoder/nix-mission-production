@@ -14,7 +14,8 @@ the deploy keys builds every machine and pushes it over SSH.
 | `modules/wallpaper.nix` | Wallpaper with an info card: location, function, hostname, IPs, boot time, support number (from `secrets/support.age`). |
 | `modules/menubar.nix` | Machine name in the menu bar (SwiftBar), card details in its dropdown. |
 | `modules/cleanup.nix` | Deletes preinstalled apps (GarageBand, iMovie, iWork) and vendor extras, hides desktop widgets. The Dock shows only the machine's apps. |
-| `modules/wifi.nix`, `modules/autologin.nix` | Use `secrets/`; do nothing until the secret exists. |
+| `modules/rustdesk.nix` | Unattended RustDesk: system service, permanent password, enrollment in the RustDesk console's "Mission Production" group. Server details come from `secrets/rustdesk.age`. |
+| `modules/wifi.nix`, `modules/autologin.nix`, `modules/rustdesk.nix` | Use `secrets/`; do nothing until the secret exists. |
 | `secrets/` | agenix secrets and host keys. |
 | `deploy` | Build, copy, activate. Also bootstraps new Macs. |
 
@@ -76,6 +77,9 @@ Current fleet:
   Desktop Video's kernel extension needs **Reduced Security** set in Recovery
   (hold power → Options → Startup Security Utility) before macOS will load it.
 - Activate licences: Dante Virtual Soundcard, ProPresenter, Resolume.
+- RustDesk: System Settings → Privacy & Security → turn RustDesk on under
+  **Screen & System Audio Recording** and **Accessibility**. macOS allows no
+  other way to grant these; until then remote sessions connect to a black screen.
 
 Expect a few "App Background Activity" notifications on a new Mac, one per
 newly installed background item. Later deploys don't repeat them: launch agents
@@ -135,6 +139,7 @@ Every secret is readable by the admin key and every registered host.
 | `wifi.age` | `SSID=...` and `PSK=...` lines |
 | `autologin-password.age` | the operator password (enables auto-login) |
 | `support.age` | the support phone number shown on the wallpaper and menu bar |
+| `rustdesk.age` | `SERVER=`, `KEY=`, optional `API=`, `PASSWORD=` (unattended access) and `TOKEN=` (console API token) lines |
 
 ```bash
 cd secrets
