@@ -15,4 +15,5 @@ in
   "wifi.age".publicKeys = everyone;
   "autologin-password.age".publicKeys = everyone;
   "support.age".publicKeys = everyone;
+  "rustdesk.age".publicKeys = everyone;
 }

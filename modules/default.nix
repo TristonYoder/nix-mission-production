@@ -7,6 +7,7 @@
     ./support.nix
     ./wifi.nix
     ./autologin.nix
+    ./rustdesk.nix
     ./cleanup.nix
   ];
 }
