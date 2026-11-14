@@ -21,9 +21,15 @@
 # macOS still wants two clicks per Mac, once: System Settings > Privacy &
 # Security > Screen & System Audio Recording and Accessibility, both on for
 # RustDesk. Until then sessions connect but show a black screen / no control.
+#
+# Its menu bar icon is hidden (production.rustdesk.showIcon). RustDesk's own
+# hide-tray switch only works in signed custom builds, so this sets the
+# per-app visibility macOS keeps for a status item -- the same thing
+# ⌘-dragging the icon off the menu bar does.
 { config, lib, pkgs, ... }:
 
 let
+  cfg = config.production.rustdesk;
   secretFile = ../secrets/rustdesk.age;
   group = "Mission Production";
 
@@ -117,6 +123,14 @@ let
         esac
       fi
 
+      # The icon's visibility is read when the item is created, so restart the
+      # menu bar agent once when it changes (drops any live session).
+      tray=${if cfg.showIcon then "shown" else "hidden"}
+      if [ "$uid" != 0 ] && [ "$(cat "$state/tray" 2>/dev/null || true)" != "$tray" ]; then
+        launchctl kickstart -k "gui/$uid/${agentLabel}" 2>/dev/null || true
+        printf %s "$tray" > "$state/tray"
+      fi
+
       [ -n "$TOKEN" ] || exit 0
       id=$(${rd} --get-id 2>/dev/null | tail -n1 || true)
       if [ -z "$id" ]; then
@@ -145,36 +159,47 @@ let
     '';
   };
 in
-lib.mkIf (builtins.pathExists secretFile) {
-  age.secrets.rustdesk.file = secretFile;
-
-  production.apps = [ "rustdesk" ];
-
-  launchd.daemons.${daemonLabel}.serviceConfig = {
-    Label = daemonLabel;
-    ProgramArguments = [ "${app}/Contents/MacOS/service" ];
-    WorkingDirectory = "${app}/Contents/MacOS/";
-    KeepAlive = true;
-    RunAtLoad = true;
-    ThrottleInterval = 1;
-    StandardOutPath = "/var/log/rustdesk_service.out";
-    StandardErrorPath = "/var/log/rustdesk_service.err";
+{
+  options.production.rustdesk.showIcon = lib.mkOption {
+    type = lib.types.bool;
+    default = false;
+    description = "Show RustDesk's icon in the menu bar.";
   };
 
-  launchd.agents.${agentLabel}.serviceConfig = {
-    Label = agentLabel;
-    ProgramArguments = [ rd "--server" ];
-    WorkingDirectory = "${app}/Contents/MacOS/";
-    LimitLoadToSessionType = [ "LoginWindow" "Aqua" ];
-    KeepAlive = { SuccessfulExit = false; AfterInitialDemand = false; };
-    RunAtLoad = true;
-    ThrottleInterval = 1;
-    ProcessType = "Interactive";
-  };
+  config = lib.mkIf (builtins.pathExists secretFile) {
+    age.secrets.rustdesk.file = secretFile;
 
-  # Never fails the deploy: a show machine that can't reach the console still
-  # has to come up. Problems print as warnings.
-  system.activationScripts.postActivation.text = ''
-    ${lib.getExe provision} || echo "warning: RustDesk provisioning failed" >&2
-  '';
+    # Status items without an autosave name are saved as Item-<n>; RustDesk has one.
+    system.defaults.CustomUserPreferences."com.carriez.rustdesk"."NSStatusItem Visible Item-0" = cfg.showIcon;
+
+    production.apps = [ "rustdesk" ];
+
+    launchd.daemons.${daemonLabel}.serviceConfig = {
+      Label = daemonLabel;
+      ProgramArguments = [ "${app}/Contents/MacOS/service" ];
+      WorkingDirectory = "${app}/Contents/MacOS/";
+      KeepAlive = true;
+      RunAtLoad = true;
+      ThrottleInterval = 1;
+      StandardOutPath = "/var/log/rustdesk_service.out";
+      StandardErrorPath = "/var/log/rustdesk_service.err";
+    };
+
+    launchd.agents.${agentLabel}.serviceConfig = {
+      Label = agentLabel;
+      ProgramArguments = [ rd "--server" ];
+      WorkingDirectory = "${app}/Contents/MacOS/";
+      LimitLoadToSessionType = [ "LoginWindow" "Aqua" ];
+      KeepAlive = { SuccessfulExit = false; AfterInitialDemand = false; };
+      RunAtLoad = true;
+      ThrottleInterval = 1;
+      ProcessType = "Interactive";
+    };
+
+    # Never fails the deploy: a show machine that can't reach the console still
+    # has to come up. Problems print as warnings.
+    system.activationScripts.postActivation.text = ''
+      ${lib.getExe provision} || echo "warning: RustDesk provisioning failed" >&2
+    '';
+  };
 }
