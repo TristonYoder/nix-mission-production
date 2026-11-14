@@ -169,8 +169,12 @@ in
   config = lib.mkIf (builtins.pathExists secretFile) {
     age.secrets.rustdesk.file = secretFile;
 
-    # Status items without an autosave name are saved as Item-<n>; RustDesk has one.
-    system.defaults.CustomUserPreferences."com.carriez.rustdesk"."NSStatusItem Visible Item-0" = cfg.showIcon;
+    # Status items without an autosave name are saved as Item-<n>; RustDesk has
+    # one. Recent macOS keeps it as "VisibleCC" (migrating the older key).
+    system.defaults.CustomUserPreferences."com.carriez.rustdesk" = {
+      "NSStatusItem Visible Item-0" = cfg.showIcon;
+      "NSStatusItem VisibleCC Item-0" = cfg.showIcon;
+    };
 
     production.apps = [ "rustdesk" ];
 
