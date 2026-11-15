@@ -42,6 +42,7 @@
             {
               production.hostName = name;
               production.apps = host.apps or [ ];
+              production.network.ip = host.ip or null;
               system.configurationRevision = self.rev or self.dirtyRev or null;
             }
             (nixpkgs.lib.optionalAttrs (host ? label) { production.label = host.label; })
