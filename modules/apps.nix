@@ -11,6 +11,9 @@
 #                check path that exists once installed (used while unpinned)
 #                marker  optional file that puts the vendor's installer in silent
 #                        mode, created only while it runs
+#   app:       bundle a cask installs as a plain .app (not a .pkg). Homebrew
+#              won't install over a copy it didn't put there, so
+#              `./deploy bootstrap` moves such hand-installed copies aside.
 #   launch:    app name passed to `open -a` at login
 #   dock:      app bundle shown in the Dock (apps without one stay off it)
 #   remove:    paths the vendor installs that we don't want (see
@@ -21,16 +24,25 @@ let
   catalog = {
     chrome = {
       cask = "google-chrome";
+      app = "/Applications/Google Chrome.app";
       dock = "/Applications/Google Chrome.app";
+    };
+
+    # Signs in per machine; set it to stream (not mirror) so it doesn't fill the disk.
+    google-drive = {
+      cask = "google-drive";
+      launch = "Google Drive";
     };
 
     spotify = {
       cask = "spotify";
+      app = "/Applications/Spotify.app";
       dock = "/Applications/Spotify.app";
     };
 
     propresenter = {
       cask = "propresenter";
+      app = "/Applications/ProPresenter.app";
       launch = "ProPresenter";
       dock = "/Applications/ProPresenter.app";
     };
@@ -48,12 +60,14 @@ let
 
     swiftbar = {
       cask = "swiftbar";
+      app = "/Applications/SwiftBar.app";
       launch = "SwiftBar";
     };
 
     # Remote support. Its launchd service and settings: modules/rustdesk.nix.
     rustdesk = {
       cask = "rustdesk";
+      app = "/Applications/RustDesk.app";
     };
 
     desktop-video = {
@@ -68,6 +82,27 @@ let
         file = "Desktop_Video_16.5.pkg";
         hash = "sha256-LBhZvK3WjZS55isFnWSfl/OQSeXUsawrcPMk0gvq64Y=";
         check = "/Applications/Blackmagic Desktop Video";
+      };
+    };
+
+    atem-software-control = {
+      dock = "/Applications/Blackmagic ATEM Switchers/ATEM Software Control.app";
+      installer = {
+        url = "https://www.blackmagicdesign.com/support/family/atem-live-production-switchers";
+        file = null; # not pinned yet: download the ATEM Switchers .pkg and pin it here
+        hash = null;
+        check = "/Applications/Blackmagic ATEM Switchers/ATEM Software Control.app";
+      };
+    };
+
+    "13-years-producer" = {
+      launch = "13 Years Producer";
+      dock = "/Applications/13 Years Producer.app";
+      installer = {
+        url = "https://13years.app";
+        file = null; # ships as a .dmg; not pinned yet
+        hash = null;
+        check = "/Applications/13 Years Producer.app";
       };
     };
 
@@ -127,10 +162,20 @@ let
       '';
 in
 {
-  options.production.apps = lib.mkOption {
-    type = lib.types.listOf (lib.types.enum (lib.attrNames catalog));
-    default = [ ];
-    description = "Apps from the catalog in modules/apps.nix. Lists from roles and hosts are merged.";
+  options.production = {
+    apps = lib.mkOption {
+      type = lib.types.listOf (lib.types.enum (lib.attrNames catalog));
+      default = [ ];
+      description = "Apps from the catalog in modules/apps.nix. Lists from roles and hosts are merged.";
+    };
+
+    caskApps = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      internal = true;
+      readOnly = true;
+      default = lib.mapAttrsToList (_: app: "${app.cask}|${app.app}") (pick "app");
+      description = "cask|bundle for this host's .app casks; read by ./deploy bootstrap.";
+    };
   };
 
   config = {

@@ -8,26 +8,30 @@ the deploy keys builds every machine and pushes it over SSH.
 | Path | What lives there |
 |---|---|
 | `inventory.nix` | **Start here.** Every host, its role and apps, the operator user, deploy keys, blackout windows. |
-| `roles/` | What a kind of machine needs (`cg`, `audio`, `lighting`, `director`). |
+| `roles/` | What a kind of machine needs (`cg`, `audio`, `video`, `lighting`, `service-director`). |
 | `modules/production.nix` | Baseline for every Mac: name, operator account, key-only SSH, never sleep, no auto-updates. |
 | `modules/apps.nix` | App catalog: the only place that knows how an app is installed. |
 | `modules/wallpaper.nix` | Wallpaper with an info card: location, function, hostname, IPs, boot time, support number (from `secrets/support.age`). |
 | `modules/menubar.nix` | Machine name in the menu bar (SwiftBar), card details in its dropdown. |
-| `modules/cleanup.nix` | Deletes preinstalled apps (GarageBand, iMovie, iWork) and vendor extras, hides desktop widgets. The Dock shows only the machine's apps. |
+| `modules/cleanup.nix` | Deletes preinstalled apps (GarageBand, iMovie, Numbers, Pages), leftovers from the old CGs (Frame.io Transfer, 13 Years Pager) and vendor extras, hides desktop widgets. The Dock shows only the machine's apps. |
 | `modules/rustdesk.nix` | Unattended RustDesk: system service, permanent password, enrollment in the RustDesk console's "Mission Production" group. Server details come from `secrets/rustdesk.age`. |
+| `modules/network.nix` | Static IP, subnet, router and DNS on the built-in Ethernet for hosts with `ip` in the inventory. The Dante adapter stays on DHCP. |
 | `modules/wifi.nix`, `modules/autologin.nix`, `modules/rustdesk.nix` | Use `secrets/`; do nothing until the secret exists. |
 | `secrets/` | agenix secrets and host keys. |
 | `deploy` | Build, copy, activate. Also bootstraps new Macs. |
 
 Current fleet:
 
-| Host | Role | Apps (plus Chrome everywhere) |
+| Host | Role | Apps (plus Chrome and Google Drive everywhere) |
 |---|---|---|
-| cg-1, cg-2 | cg | Desktop Video, Dante Virtual Soundcard, ProPresenter |
-| cg-3 | cg | Desktop Video, Dante Virtual Soundcard, Resolume Arena |
-| cg-4 | cg | Desktop Video, Dante Virtual Soundcard, ProPresenter, Spotify |
+| cg-5hs (hot spare, .95) | cg | Desktop Video, Dante Virtual Soundcard, ProPresenter, Resolume Arena |
+| cg-1, cg-2 (.91, .92) | cg | Desktop Video, Dante Virtual Soundcard, ProPresenter |
+| cg-3 (.93) | cg | Desktop Video, Dante Virtual Soundcard, Resolume Arena |
+| cg-4 (.94) | cg | Desktop Video, Dante Virtual Soundcard, ProPresenter, Spotify, 13 Years Producer |
 | audio | audio | Dante Virtual Soundcard, Dante Controller |
-| lighting, director | — | TBD |
+| service-director | service-director | ATEM Software Control, Dante Controller |
+| video | video | ATEM Software Control |
+| lighting | — | TBD |
 
 ## Deploying
 
@@ -84,6 +88,34 @@ Current fleet:
 Expect a few "App Background Activity" notifications on a new Mac, one per
 newly installed background item. Later deploys don't repeat them: launch agents
 start through `/bin/sh` or `/usr/bin/open`, whose identity never changes.
+
+### Taking over a Mac that's already in use
+
+Same as above, without wiping it. Do it outside the blackout window, at the Mac.
+
+1. **Rename the existing account to the operator account.** Sign in as a
+   temporary admin (System Settings → Users & Groups → Add User), then
+   right-click the old account → **Advanced Options**:
+   - Account name and home directory: `missionproduction` and
+     `/Users/missionproduction` (rename the folder in `/Users` to match first)
+   - Full name: **Mission Production**
+
+   Restart, log in to it, set the shared password, and delete the temporary
+   admin. Files, ProPresenter libraries and Chrome profiles all stay put.
+   Google Drive may ask to sign in again.
+2. Quit the show apps. Remote Login is usually on already.
+3. `./deploy bootstrap <name> <ip>` as for a new Mac. Hand-installed copies of
+   apps that Homebrew now manages (Chrome, ProPresenter, Spotify, ...) go to the
+   operator's Trash first, so Homebrew can install its own. Their settings stay.
+4. Restart, then do the "At the Mac again" steps. Desktop Video and Dante
+   Virtual Soundcard move to the pinned versions, so expect the system
+   extension prompt again.
+5. **Re-patch Dante.** If the Mac's name changed, its Dante Virtual Soundcard
+   device name probably did too, which breaks its routes in Dante Controller.
+   ProPresenter's network name changes with it (remotes, stage displays).
+
+Apps installed outside the catalog (TeamViewer, Chrome Remote Desktop, ...) are
+left alone. Remove them with their vendor uninstaller.
 
 ### Vendor installers (Desktop Video, Dante Virtual Soundcard)
 

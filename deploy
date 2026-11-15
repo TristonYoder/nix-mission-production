@@ -211,6 +211,23 @@ cmd_bootstrap() {
   step "Install Command Line Tools and Nix (sudo password for $user)"
   ssh "${SSH_PINNED[@]}" -t "$target" "bash -c $(printf %q "$PREPARE_MAC") _ $user"
 
+  step "Move aside hand-installed apps that Homebrew will now manage"
+  # An existing Mac may already have Chrome, ProPresenter, ... installed by
+  # hand. Homebrew refuses to install a cask over a copy it didn't put there,
+  # so move those to the operator's Trash (settings in ~/Library are kept).
+  local apps
+  # shellcheck disable=SC2016  # ${...} is Nix interpolation
+  apps=$(nix eval --raw ".#darwinConfigurations.$host.config.production.caskApps" \
+    --apply 'builtins.concatStringsSep "\n"')
+  # shellcheck disable=SC2016  # expanded on the remote side
+  ssh "${SSH_PINNED[@]}" "$target" 'set -e
+    while IFS="|" read -r cask app; do
+      [ -n "$cask" ] && [ -d "$app" ] || continue
+      [ -d "/opt/homebrew/Caskroom/$cask" ] && continue
+      dest="$HOME/.Trash/$(basename "$app" .app) (before Homebrew $(date +%Y%m%d-%H%M%S)).app"
+      mv "$app" "$dest" && echo "moved $app to the Trash"
+    done' <<< "$apps"
+
   # Use the address given: until activation sets its name, the Mac does not
   # answer at <host>.local.
   deploy_host "$host" "$addr"

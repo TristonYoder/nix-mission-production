@@ -30,24 +30,43 @@
     title = "Mission Church Production";
   };
 
+  # Production network shared by every host with a static `ip`
+  # (modules/network.nix). Hosts without `ip` stay on DHCP.
+  network = {
+    subnetMask = "255.255.252.0"; # 192.168.104.0/22
+    router = "192.168.104.1";
+    dns = [ "1.1.1.1" "8.8.8.8" ];
+  };
+
   # role:  file in ./roles
   # apps:  extra apps from the catalog in modules/apps.nix (added to the role's)
   # label: computer name (default: name upper-cased, "-" -> " ")
   # location, function: lines on the wallpaper card (function defaults to label)
+  # ip:    static address on the production network (see `network` above)
   # config: optional inline nix-darwin module for one-off overrides
   # Machines are reached at <name>.local unless `address` is set.
   hosts = {
-    cg-1 = { role = "cg"; apps = [ "propresenter" ]; };
-    cg-2 = { role = "cg"; apps = [ "propresenter" ]; };
+    # Hot spare: carries every CG app so it can stand in for any of them.
+    cg-5hs = {
+      role = "cg";
+      apps = [ "propresenter" "resolume" ];
+      label = "CG-5HS";
+      function = "CG 5 - Hot Spare";
+      ip = "192.168.105.95";
+    };
+    cg-1 = { role = "cg"; apps = [ "propresenter" ]; ip = "192.168.105.91"; };
+    cg-2 = { role = "cg"; apps = [ "propresenter" ]; ip = "192.168.105.92"; };
     cg-3 = {
       role = "cg";
       apps = [ "resolume" ];
       location = "West Auditorium";
       function = "CG 3 - Resolume";
+      ip = "192.168.105.93";
     };
-    cg-4 = { role = "cg"; apps = [ "propresenter" "spotify" ]; };
+    cg-4 = { role = "cg"; apps = [ "propresenter" "spotify" "13-years-producer" ]; ip = "192.168.105.94"; };
     audio = { role = "audio"; };
     lighting = { role = "lighting"; };
-    director = { role = "director"; };
+    service-director = { role = "service-director"; };
+    video = { role = "video"; };
   };
 }

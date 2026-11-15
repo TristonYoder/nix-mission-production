@@ -14,7 +14,7 @@
   };
 
   config = {
-    # Preinstalled on new Macs.
+    # Preinstalled on new Macs, plus leftovers found on the old CGs.
     production.remove = [
       "/Applications/GarageBand.app"
       "/Library/Application Support/GarageBand"
@@ -23,6 +23,16 @@
       "/Applications/Keynote Creator Studio.app"
       "/Applications/Numbers Creator Studio.app"
       "/Applications/Pages Creator Studio.app"
+      # Keynote stays: ProPresenter's Keynote import needs it.
+      "/Applications/Numbers.app"
+      "/Applications/Pages.app"
+
+      # Found on the old CGs, not used on a show machine. TeamViewer and
+      # Chrome Remote Desktop are not listed: they register launchd services
+      # (and TeamViewer a login plugin) that deleting files would leave
+      # behind. Remove those with their vendor uninstallers.
+      "/Applications/Frame.io Transfer.app"
+      "/Applications/13 Years Pager.app"
     ];
 
     # No desktop widgets, and clicking the wallpaper doesn't sweep every
