@@ -47,23 +47,22 @@
   # Machines are reached at <name>.local unless `address` is set.
   hosts = {
     # Hot spare: carries every CG app so it can stand in for any of them.
-    cg-5hs = {
+    west-cg5hs = {
       role = "cg";
       apps = [ "propresenter" "resolume" ];
-      label = "CG-5HS";
       function = "CG 5 - Hot Spare";
       ip = "192.168.105.95";
     };
-    cg-1 = { role = "cg"; apps = [ "propresenter" ]; ip = "192.168.105.91"; };
-    cg-2 = { role = "cg"; apps = [ "propresenter" ]; ip = "192.168.105.92"; };
-    cg-3 = {
+    west-cg1 = { role = "cg"; apps = [ "propresenter" ]; ip = "192.168.105.91"; };
+    west-cg2 = { role = "cg"; apps = [ "propresenter" ]; ip = "192.168.105.92"; };
+    west-cg3 = {
       role = "cg";
       apps = [ "resolume" ];
       location = "West Auditorium";
       function = "CG 3 - Resolume";
       ip = "192.168.105.93";
     };
-    cg-4 = { role = "cg"; apps = [ "propresenter" "spotify" "13-years-producer" ]; ip = "192.168.105.94"; };
+    west-cg4 = { role = "cg"; apps = [ "propresenter" "spotify" "13-years-producer" ]; ip = "192.168.105.94"; };
     audio = { role = "audio"; };
     lighting = { role = "lighting"; };
     service-director = { role = "service-director"; };
