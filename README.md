@@ -24,10 +24,10 @@ Current fleet:
 
 | Host | Role | Apps (plus Chrome and Google Drive everywhere) |
 |---|---|---|
-| cg-5hs (hot spare, .95) | cg | Desktop Video, Dante Virtual Soundcard, ProPresenter, Resolume Arena |
-| cg-1, cg-2 (.91, .92) | cg | Desktop Video, Dante Virtual Soundcard, ProPresenter |
-| cg-3 (.93) | cg | Desktop Video, Dante Virtual Soundcard, Resolume Arena |
-| cg-4 (.94) | cg | Desktop Video, Dante Virtual Soundcard, ProPresenter, Spotify, 13 Years Producer |
+| west-cg5hs (hot spare, .95) | cg | Desktop Video, Dante Virtual Soundcard, ProPresenter, Resolume Arena |
+| west-cg1, west-cg2 (.91, .92) | cg | Desktop Video, Dante Virtual Soundcard, ProPresenter |
+| west-cg3 (.93) | cg | Desktop Video, Dante Virtual Soundcard, Resolume Arena |
+| west-cg4 (.94) | cg | Desktop Video, Dante Virtual Soundcard, ProPresenter, Spotify, 13 Years Producer |
 | audio | audio | Dante Virtual Soundcard, Dante Controller |
 | service-director | service-director | ATEM Software Control, Dante Controller |
 | video | video | ATEM Software Control |
@@ -36,7 +36,7 @@ Current fleet:
 ## Deploying
 
 ```bash
-./deploy cg-3              # one machine
+./deploy west-cg3          # one machine
 ./deploy --role cg         # every CG machine
 ./deploy --all
 ./deploy --build --all     # build only; nothing remote is touched
