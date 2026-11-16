@@ -1,6 +1,6 @@
 # Names each port's network service after the network its address is in,
-# e.g. "Dante Primary (VLAN 910)", or "Staff - WiFi" for an entry without an id.
-# VLANS (prepended) holds one "id|name|network|prefix" line per network.
+# e.g. "Dante Primary" or "Staff - WiFi". VLANS (prepended) holds one
+# "name|network|prefix" line per network.
 # Runs on every network change.
 #   address in a known VLAN -> that VLAN's name
 #   address elsewhere       -> back to the hardware port's own name
@@ -16,13 +16,13 @@ ip2int() {
 }
 
 vlan_for() {
-  local addr id name net prefix mask
+  local addr name net prefix mask
   addr=$(ip2int "$1")
-  while IFS='|' read -r id name net prefix; do
+  while IFS='|' read -r name net prefix; do
     [ -n "$name" ] || continue
     mask=$(( (0xFFFFFFFF << (32 - prefix)) & 0xFFFFFFFF ))
     if (( (addr & mask) == ($(ip2int "$net") & mask) )); then
-      if [ -n "$id" ]; then echo "$name (VLAN $id)"; else echo "$name"; fi
+      echo "$name"
       return
     fi
   done <<< "$VLANS"
