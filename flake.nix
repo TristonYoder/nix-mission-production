@@ -20,9 +20,14 @@
       url = "github:ryantm/agenix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # Our FFGL plugins for Resolume (Lyric Flip) + the matching ProPresenter theme.
+    resolume-effects = {
+      url = "github:TristonYoder/resolume-effects";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, nix-darwin, nix-homebrew, agenix }:
+  outputs = { self, nixpkgs, nixpkgs-unstable, nix-darwin, nix-homebrew, agenix, resolume-effects }:
     let
       inventory = import ./inventory.nix;
       system = "aarch64-darwin";
@@ -37,6 +42,7 @@
           modules = [
             nix-homebrew.darwinModules.nix-homebrew
             agenix.darwinModules.default
+            resolume-effects.darwinModules.default
             ./modules
             ./roles/${host.role}.nix
             {
