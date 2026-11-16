@@ -71,6 +71,22 @@ let
       };
     };
 
+    # Driver for the Sonnet Twin10G 10GBASE-T PCIe card (G10E-2X-E3, Intel X540),
+    # the CG machines' add-in NIC. Sonnet lists Mac Pro 14,8 (Apple Silicon) and
+    # Thunderbolt expansion systems on macOS 15+. Support library:
+    # https://support.sonnettech.com/support/kb/kb.php?cat=513
+    sonnet-twin10g = {
+      installer = {
+        url = "https://support.sonnettech.com/download.php?f=software/SonnetEthernet-10GE-1.8.4.dmg";
+        # Not pinned yet: copy the .pkg out of SonnetEthernet-10GE-1.8.4.dmg into
+        # ~/ProductionInstallers, then set file and hash. check is a guess at
+        # the install path; correct it from the .pkg's contents when pinning.
+        file = null;
+        hash = null;
+        check = "/Library/DriverExtensions/SonnetEthernet10GE.dext";
+      };
+    };
+
     dante-virtual-soundcard = {
       dock = "/Applications/Dante Virtual Soundcard.app";
       installer = {
