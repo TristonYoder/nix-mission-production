@@ -45,15 +45,15 @@
   # "<name>" without an id (modules/vlans.nix). That name is what System
   # Settings, the wallpaper card and the menu bar show.
   vlans = [
-    { id = 1;   name = "Management";      subnet = "172.16.1.0/24"; }
-    { id = 104; name = "AV";              subnet = "192.168.104.0/22"; }
-    { id = 910; name = "Dante Primary";   subnet = "172.16.20.0/24"; }
-    { id = 920; name = "Dante Secondary"; subnet = "172.16.21.0/24"; }
-    { id = 930; name = "Lighting";        subnet = "172.16.30.0/24"; }
-    { id = 940; name = "KVM";             subnet = "172.16.40.0/24"; }
-    { id = 950; name = "Intercom";        subnet = "172.16.50.0/24"; }
-    { name = "Staff WiFi"; subnet = "192.168.50.0/24"; }
-    { name = "Prod WiFi";  subnet = "192.168.100.0/24"; }
+    { id = 1;   name = "Management";                subnet = "172.16.1.0/24"; }
+    { id = 104; name = "Production Control";        subnet = "192.168.104.0/22"; }
+    { id = 910; name = "Dante Primary";             subnet = "172.16.20.0/24"; }
+    { id = 920; name = "Dante Secondary";           subnet = "172.16.21.0/24"; }
+    { id = 930; name = "Lighting";                  subnet = "172.16.30.0/24"; }
+    { id = 940; name = "KVM";                       subnet = "172.16.40.0/24"; }
+    { id = 950; name = "Intercom";                  subnet = "172.16.50.0/24"; }
+    {           name = "Staff WiFi";                subnet = "192.168.50.0/24"; }
+    {           name = "Production Control (WiFi)"; subnet = "192.168.100.0/24"; }
   ];
 
   # role:  file in ./roles
