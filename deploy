@@ -43,7 +43,7 @@ inv() { nix eval --raw .#inventory --apply "$1"; }
 user=$(inv 'i: i.user')
 
 host_exists() { [ "$(inv "i: if i.hosts ? \"$1\" then \"y\" else \"n\"")" = y ]; }
-address_of() { inv "i: i.hosts.\"$1\".address or \"$1.local\""; }
+address_of() { inv "i: i.hosts.\"$1\".address or i.hosts.\"$1\".ip or \"$1.local\""; }
 all_hosts() { inv 'i: toString (builtins.attrNames i.hosts)'; }
 hosts_with_role() {
   inv "i: toString (builtins.filter (n: i.hosts.\${n}.role == \"$1\") (builtins.attrNames i.hosts))"
