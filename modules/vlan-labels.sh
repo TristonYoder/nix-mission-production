@@ -1,5 +1,5 @@
 # Names each port's network service after the network its address is in,
-# e.g. "Dante Primary (VLAN 910)", or "Staff WiFi" for an entry without an id.
+# e.g. "Dante Primary (VLAN 910)", or "Staff - WiFi" for an entry without an id.
 # VLANS (prepended) holds one "id|name|network|prefix" line per network.
 # Runs on every network change.
 #   address in a known VLAN -> that VLAN's name

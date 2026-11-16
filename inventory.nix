@@ -52,8 +52,8 @@
     { id = 930; name = "Lighting";                  subnet = "172.16.30.0/24"; }
     { id = 940; name = "KVM";                       subnet = "172.16.40.0/24"; }
     { id = 950; name = "Intercom";                  subnet = "172.16.50.0/24"; }
-    {           name = "Staff WiFi";                subnet = "192.168.50.0/24"; }
-    {           name = "Production Control (WiFi)"; subnet = "192.168.100.0/24"; }
+    {           name = "Staff - WiFi";              subnet = "192.168.50.0/24"; }
+    {           name = "Production Control - WiFi"; subnet = "192.168.100.0/24"; }
   ];
 
   # role:  file in ./roles
