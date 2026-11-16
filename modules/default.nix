@@ -12,6 +12,7 @@
     ./autologin.nix
     ./rustdesk.nix
     ./nas.nix
+    ./decklink.nix
     ./cleanup.nix
     ./fonts.nix
   ];

@@ -85,6 +85,33 @@
       location = "West Auditorium";
       function = "CG 3 - Resolume";
       ip = "192.168.105.93";
+      # Its card, as read from it (modules/decklink.nix).
+      config.production.decklink."DeckLink 8K Pro Mini" = {
+        profile = "FourSubDevicesHalfDuplex";
+        all = {
+          DefaultVideoOutputMode = "Hp59"; # 1080p59.94
+          DefaultVideoOutputModeFlags = 0;
+          VideoOutputConnection = 9;
+          VideoOutputConversionMode = "none";
+          VideoOutputIdleOperation = "blac";
+          SDIOutputLinkConfiguration = "lcsl";
+          SMPTELevelAOutput = true; # 3G Level A
+          "444SDIVideoOutput" = false;
+          Output1080pAsPsF = false;
+          LowLatencyVideoOutput = false;
+          FieldFlickerRemoval = true;
+          Rec2020Output = false;
+          QuadLinkSDIVideoOutputSquareDivisionSplit = false;
+          PlaybackGroup = 0;
+          ReferenceInputTimingOffset = 0;
+        };
+        subDevices = {
+          "0" = { DeviceInformationLabel = "1. 4K Direct"; DefaultVideoOutputMode = "4k60"; };
+          "1".DeviceInformationLabel = "3. Center";
+          "2".DeviceInformationLabel = "2 HL IMAG";
+          "3".DeviceInformationLabel = "4 HR IMAG";
+        };
+      };
     };
     west-cg4 = { role = "cg"; apps = [ "propresenter" "spotify" "13-years-producer" ]; ip = "192.168.105.94"; };
     audio = { role = "audio"; };
