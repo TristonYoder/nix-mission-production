@@ -18,9 +18,12 @@
   ];
 
   # ./deploy refuses to run inside these windows unless given --force.
-  # day: Mon..Sun, times are 24h local time on the deploy machine.
+  # day: Mon..Sun, times are 24h local time on the deploy machine; `to` is
+  # exclusive. A window can't cross midnight, so split it per day.
+  # Saturday noon through Sunday 1pm:
   blackout = [
-    { day = "Sun"; from = "06:00"; to = "13:00"; }
+    { day = "Sat"; from = "12:00"; to = "24:00"; }
+    { day = "Sun"; from = "00:00"; to = "13:00"; }
   ];
 
   # Shared text on every wallpaper's info card (modules/wallpaper.nix).
@@ -44,7 +47,7 @@
   # location, function: lines on the wallpaper card (function defaults to label)
   # ip:    static address on the production network (see `network` above)
   # config: optional inline nix-darwin module for one-off overrides
-  # Machines are reached at <name>.local unless `address` is set.
+  # Machines are reached at `address`, else `ip`, else <name>.local.
   hosts = {
     # Hot spare: carries every CG app so it can stand in for any of them.
     west-cg5hs = {
