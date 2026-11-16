@@ -6,6 +6,14 @@
 #   address elsewhere       -> back to the hardware port's own name
 #   no address (unplugged)  -> left alone, so the port keeps its last label
 
+# A deploy's activation writes the same network settings ("configuring
+# networking"); renaming at the same moment makes its write fail as stale and
+# aborts the deploy. Stay out of the way: activation kicks this off again once
+# it has finished (vlans.nix).
+if /usr/bin/pgrep -qf 'darwin-system-[^ ]*/activate'; then
+  exit 0
+fi
+
 log() { echo "$(/bin/date '+%F %T') $*"; }
 
 ip2int() {

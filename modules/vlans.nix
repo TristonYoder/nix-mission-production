@@ -1,7 +1,7 @@
 # Labels ports by network: a daemon renames each port's network service
 # after the VLAN or WiFi network (inventory.nix `vlans`) its address falls in, on every network
 # change. Only the name changes; the connection isn't touched.
-{ lib, pkgs, inventory, ... }:
+{ config, lib, pkgs, inventory, ... }:
 
 let
   line = v:
@@ -32,4 +32,11 @@ in
       StandardErrorPath = "/var/log/vlan-labels.log";
     };
   };
+
+  # Runs during activation are skipped (see vlan-labels.sh), so label once
+  # activation has exited. Detached: the deploy doesn't wait for it.
+  system.activationScripts.postActivation.text = lib.mkAfter ''
+    nohup /bin/sh -c 'while /usr/bin/pgrep -qf "darwin-system-[^ ]*/activate"; do sleep 2; done
+      launchctl kickstart system/${config.launchd.daemons.vlan-labels.serviceConfig.Label}' >/dev/null 2>&1 &
+  '';
 }
