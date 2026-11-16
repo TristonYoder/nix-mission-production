@@ -11,7 +11,20 @@
 
 let
   cfg = config.production.wallpaper;
-  fonts = "${pkgs.roboto-mono}/share/fonts/truetype";
+  # Inter, cut to fixed weights with a slashed zero baked in, so 0 and O
+  # can't be confused in IPs and hostnames (ImageMagick can't turn on the
+  # font's `zero` feature itself). Display optical size: everything here is
+  # large on a 2160 px canvas.
+  fonts = pkgs.runCommand "wallpaper-fonts"
+    { nativeBuildInputs = [ (pkgs.python3.withPackages (p: [ p.fonttools ])) ]; }
+    ''
+      mkdir -p $out
+      for w in 400 500 600 900; do
+        fonttools varLib.instancer -q ${pkgs.inter}/share/fonts/truetype/InterVariable.ttf \
+          wght=$w opsz=32 -o instance.ttf
+        python3 ${./slashed-zero.py} instance.ttf $out/Inter-$w.ttf
+      done
+    '';
   rev = config.system.configurationRevision;
 
   # Every screen: dark gradient (or `background`) with the logo in white.
@@ -31,13 +44,12 @@ let
     '';
 
   # Main screen (also the lock screen): the backdrop plus the machine's name
-  # under the logo. Archivo Expanded Black: the variable font pinned to
-  # wdth=125 wght=900 with fonttools' varLib.instancer (OFL, see assets/fonts).
+  # under the logo, in Inter Black.
   base = pkgs.runCommand "wallpaper-base.png"
     { nativeBuildInputs = [ pkgs.imagemagick ]; }
     ''
-      magick ${backdrop} -gravity center -font ${../assets/fonts/ArchivoExpanded-Black.ttf} \
-        -pointsize 160 -kerning 4 -fill white \
+      magick ${backdrop} -gravity center -font ${fonts}/Inter-900.ttf \
+        -pointsize 190 -kerning -2 -fill white \
         -annotate +0+260 ${lib.escapeShellArg config.production.label} -depth 8 \
         $out
     '';
@@ -48,8 +60,9 @@ let
     text = ''
       BACKDROP=${backdrop}
       BASE=${base}
-      CARD_FONT=${fonts}/RobotoMono-Regular.ttf
-      CARD_FONT_BOLD=${fonts}/RobotoMono-Bold.ttf
+      CARD_FONT=${fonts}/Inter-400.ttf
+      CARD_FONT_LABEL=${fonts}/Inter-500.ttf
+      CARD_FONT_BOLD=${fonts}/Inter-600.ttf
       TITLE=${lib.escapeShellArg cfg.title}
       LOCATION=${lib.escapeShellArg (toString cfg.location)}
       FUNCTION=${lib.escapeShellArg cfg.function}

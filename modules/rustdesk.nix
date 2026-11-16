@@ -104,7 +104,11 @@ let
       fi
 
       want=$(printf '%s\n' "$SERVER" "$KEY" "$API" "$PASSWORD" | sha256sum | cut -d' ' -f1)
-      if [ "$(cat "$state/applied" 2>/dev/null || true)" != "$want" ]; then
+      # The stamp alone isn't proof: RustDesk has been seen to drop the stored
+      # password afterwards. Re-apply whenever the service's copy is empty.
+      stored=no
+      grep -Eq "^password = '.+'" /var/root/Library/Preferences/com.carriez.RustDesk/RustDesk.toml 2>/dev/null && stored=yes
+      if [ "$stored" = no ] || [ "$(cat "$state/applied" 2>/dev/null || true)" != "$want" ]; then
         ${rd} --option custom-rendezvous-server "$SERVER"
         ${rd} --option relay-server "$SERVER"
         ${rd} --option api-server "$API"
@@ -189,14 +193,29 @@ in
       StandardErrorPath = "/var/log/rustdesk_service.err";
     };
 
+    # Watchdog: re-runs provisioning every 15 minutes, so a dropped password
+    # or setting is restored without waiting for the next deploy. Cheap when
+    # nothing changed (stamps).
+    launchd.daemons.rustdesk-provision.serviceConfig = {
+      Label = "org.missionproduction.rustdesk-provision";
+      ProgramArguments = [ (lib.getExe provision) ];
+      RunAtLoad = true;
+      StartInterval = 900;
+      StandardOutPath = "/var/log/rustdesk-provision.log";
+      StandardErrorPath = "/var/log/rustdesk-provision.log";
+    };
+
     launchd.agents.${agentLabel}.serviceConfig = {
       Label = agentLabel;
       ProgramArguments = [ rd "--server" ];
       WorkingDirectory = "${app}/Contents/MacOS/";
       LimitLoadToSessionType = [ "LoginWindow" "Aqua" ];
-      KeepAlive = { SuccessfulExit = false; AfterInitialDemand = false; };
+      # RustDesk's own plist only restarts it after a crash, but the server
+      # also exits cleanly (code 0) and then stays down until the next login.
+      # Always restart it; launchd is the watchdog.
+      KeepAlive = true;
       RunAtLoad = true;
-      ThrottleInterval = 1;
+      ThrottleInterval = 10;
       ProcessType = "Interactive";
     };
 
