@@ -17,6 +17,8 @@ the deploy keys builds every machine and pushes it over SSH.
 | `modules/rustdesk.nix` | Unattended RustDesk: system service, permanent password, enrollment in the RustDesk console's "Mission Production" group. Server details come from `secrets/rustdesk.age`. |
 | `modules/network.nix` | Static IP, subnet, router and DNS on the built-in Ethernet for hosts with `ip` in the inventory. The Dante adapter stays on DHCP. |
 | `modules/fonts.nix`, `fonts/` | System-wide fonts: Inter on every Mac; files in `fonts/cg/` go on CG machines. |
+| `modules/wifi.nix` | Production WiFi, plus a watchdog (`wifi-watchdog.sh`) that turns WiFi off while a wired port has internet and back on when none does. |
+| `modules/vlans.nix` | Renames each port's network service after its VLAN or WiFi network (from `vlans` in `inventory.nix`), e.g. "Dante Primary", "Production Control - WiFi". |
 | `modules/wifi.nix`, `modules/autologin.nix`, `modules/rustdesk.nix` | Use `secrets/`; do nothing until the secret exists. |
 | `secrets/` | agenix secrets and host keys. |
 | `deploy` | Build, copy, activate. Also bootstraps new Macs. |
@@ -158,6 +160,19 @@ While `file = null`, an app is unpinned: activation only warns if it's missing.
   `modules/cleanup.nix` (or to an app's `remove` in the catalog).
 - **One-off tweak for one machine:** give the host a `config = { ... };` module in
   `inventory.nix`.
+- **WiFi:** by default (`production.wifi.mode = "auto"`; CG machines default to
+  `"off"` in `roles/cg.nix`) a watchdog runs on every
+  network change and every 30s: if any wired port can ping the internet
+  (1.1.1.1 / 8.8.8.8, through that port), WiFi goes off; otherwise it comes on.
+  A port that only carries Dante doesn't count as internet. Changes are logged
+  to `/var/log/wifi-watchdog.log`. If the venue blocks ping, set
+  `production.wifi.probeHosts` to hosts that answer.
+- **NIC labels:** each port (WiFi included) is named after the network its
+  address falls in (`vlans` in `inventory.nix`); that name shows in System Settings → Network, on
+  the wallpaper card and in the menu bar. An unplugged port keeps its last label;
+  a port on an unknown subnet goes back to its hardware name. Renames are logged
+  to `/var/log/vlan-labels.log`. Add or change a VLAN in `inventory.nix`.
+- **WiFi always on** (no watchdog): `config = { production.wifi.mode = "join"; };`
 - **WiFi off on a machine** (for example, to keep Dante on wired only):
   `config = { production.wifi.mode = "off"; };`
 - **Wallpaper:** commit the background as `assets/wallpaper.jpg` (used by every

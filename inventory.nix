@@ -40,6 +40,21 @@
     router = "192.168.104.1";
     dns = [ "1.1.1.1" "8.8.8.8" ];
   };
+  # Networks by subnet. A port (wired or WiFi) whose address falls in one of
+  # these gets its network service renamed "<name>" (modules/vlans.nix);
+  # `id` is the VLAN number, for reference only. That name is what System
+  # Settings, the wallpaper card and the menu bar show.
+  vlans = [
+    { id = 1;   name = "Management";                subnet = "172.16.1.0/24"; }
+    { id = 104; name = "Production Control";        subnet = "192.168.104.0/22"; }
+    { id = 910; name = "Dante Primary";             subnet = "172.16.20.0/24"; }
+    { id = 920; name = "Dante Secondary";           subnet = "172.16.21.0/24"; }
+    { id = 930; name = "Lighting";                  subnet = "172.16.30.0/24"; }
+    { id = 940; name = "KVM";                       subnet = "172.16.40.0/24"; }
+    { id = 950; name = "Intercom";                  subnet = "172.16.50.0/24"; }
+    {           name = "Staff - WiFi";              subnet = "192.168.50.0/24"; }
+    {           name = "Production Control - WiFi"; subnet = "192.168.100.0/24"; }
+  ];
 
   # role:  file in ./roles
   # apps:  extra apps from the catalog in modules/apps.nix (added to the role's)
@@ -56,10 +71,11 @@
       function = "CG 5 - Hot Spare";
       ip = "192.168.105.95";
       # For now this Mac (the one first set up as the new CG3) is on WiFi only:
-      # reach it there and leave WiFi alone, or the CG default (WiFi off)
-      # would cut it off mid-deploy. Drop both once it's wired at .95.
+      # reach it there. The watchdog ("auto") keeps WiFi on while no wired port
+      # has internet, and turns it off once Ethernet at .95 does -- at which
+      # point drop `address` so deploys go to .95.
       address = "192.168.100.70";
-      config = { production.wifi.mode = "unmanaged"; };
+      config = { production.wifi.mode = "auto"; };
     };
     west-cg1 = { role = "cg"; apps = [ "propresenter" ]; ip = "192.168.105.91"; };
     west-cg2 = { role = "cg"; apps = [ "propresenter" ]; ip = "192.168.105.92"; };
