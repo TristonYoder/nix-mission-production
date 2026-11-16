@@ -19,7 +19,8 @@
 #   after:     apps whose `ready` must pass before this one launches at login
 #              (only those this machine has; gives up after 10 seconds and
 #              launches anyway)
-#   dock:      app bundle shown in the Dock (apps without one stay off it)
+#   dock:      app bundle shown in the Dock (apps without one stay off it, and
+#              so does this one until it's actually installed)
 #   remove:    paths the vendor installs that we don't want (see
 #              modules/cleanup.nix)
 { config, lib, pkgs, ... }:
@@ -134,6 +135,10 @@ let
   selected = lib.genAttrs names (name: catalog.${name});
   pick = field: lib.filterAttrs (_: app: app ? ${field}) selected;
 
+  dockApps =
+    lib.concatMap (name: lib.optional (catalog.${name} ? dock) catalog.${name}.dock) names
+    ++ [ "/System/Applications/System Settings.app" ];
+
   # The .pkg enters the deploy Mac's store via `nix-store --add-fixed` (done by
   # ./deploy) and reaches each machine inside the system closure.
   fetchInstaller = i: pkgs.requireFile {
@@ -207,11 +212,38 @@ in
   config = {
     homebrew.casks = lib.mapAttrsToList (_: app: app.cask) (pick "cask");
 
-    # Only this machine's apps, in the order they're listed. Apple's own apps
-    # can't be deleted, so keeping them off the Dock is the cleanup for those.
-    system.defaults.dock.persistent-apps =
-      lib.concatMap (name: lib.optional (catalog.${name} ? dock) catalog.${name}.dock) names
-      ++ [ "/System/Applications/System Settings.app" ];
+    # Only this machine's apps, in the order they're listed, and only those
+    # actually on disk: a missing bundle shows as a "?" in the Dock. Written
+    # last in activation (after casks and installers), not via
+    # system.defaults.dock.persistent-apps, which nix-darwin writes before
+    # anything is installed. Apple's own apps can't be deleted, so keeping them
+    # off the Dock is the cleanup for those.
+    system.activationScripts.postActivation.text = lib.mkMerge [
+      (lib.concatStrings (lib.mapAttrsToList (name: app: installScript name app.installer) (pick "installer")))
+
+      (lib.mkAfter (let
+        user = lib.escapeShellArg config.system.primaryUser;
+        tile = path: lib.escapeShellArg (
+          "<dict><key>tile-data</key><dict><key>file-data</key><dict>"
+          + "<key>_CFURLString</key><string>${lib.escapeXML path}</string>"
+          + "<key>_CFURLStringType</key><integer>0</integer>"
+          + "</dict></dict></dict>");
+        addTile = path: ''
+          if [ -e ${lib.escapeShellArg path} ]; then
+            dockTiles="$dockTiles"${tile path}
+          else
+            echo "note: ${path} is not installed; leaving it off the Dock" >&2
+          fi
+        '';
+      in ''
+        echo >&2 "setting the Dock..."
+        dockTiles=
+        ${lib.concatMapStrings addTile dockApps}
+        launchctl asuser "$(id -u -- ${user})" sudo --user=${user} -- defaults write com.apple.dock persistent-apps \
+          '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array>'"$dockTiles"'</array></plist>'
+        killall -qu ${user} Dock || true
+      ''))
+    ];
 
     production.remove = lib.concatLists (lib.mapAttrsToList (_: app: app.remove) (pick "remove"));
 
@@ -222,8 +254,5 @@ in
           RunAtLoad = true;
         };
       }) (pick "launch");
-
-    system.activationScripts.postActivation.text =
-      lib.concatStrings (lib.mapAttrsToList (name: app: installScript name app.installer) (pick "installer"));
   };
 }
