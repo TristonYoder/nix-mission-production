@@ -43,6 +43,16 @@ let
         $out
     '';
 
+  # The operator's account picture (login window, lock screen, user menu): a
+  # square of the backdrop centred on the logo, so it matches the desktop.
+  # The logo sits 520 px wide, 170 px above centre on the 3840x2160 canvas.
+  userPicture = pkgs.runCommand "user-picture.jpg"
+    { nativeBuildInputs = [ pkgs.imagemagick ]; }
+    ''
+      magick ${backdrop} -crop 760x760+1540+530 +repage -resize 512x512 \
+        -quality 92 $out
+    '';
+
   # Main screen (also the lock screen): the backdrop plus the machine's name
   # under the logo, in Inter Black.
   base = pkgs.runCommand "wallpaper-base.png"
@@ -96,6 +106,28 @@ in
   # the executable's code identity: a store path changes every deploy and
   # pops an "App Background Activity" notification each time; /bin/sh never
   # changes.
+  # macOS shows JPEGPhoto (the image bytes, loaded with dsimport); Picture is
+  # the path it came from. Picture doubles as the marker: it names the store
+  # path, so the import only reruns when the image changes.
+  config.system.activationScripts.postActivation.text = ''
+    pic=${userPicture}
+    user=${lib.escapeShellArg inventory.user}
+    if [ "$(/usr/bin/dscl . -read "/Users/$user" Picture 2>/dev/null | sed -n 's/^Picture: *//p')" != "$pic" ]; then
+      echo "setting $user's account picture"
+      import=$(mktemp)
+      printf '0x0A 0x5C 0x3A 0x2C dsRecTypeStandard:Users 2 dsAttrTypeStandard:RecordName externalbinary:dsAttrTypeStandard:JPEGPhoto\n%s:%s\n' \
+        "$user" "$pic" > "$import"
+      /usr/bin/dscl . -delete "/Users/$user" JPEGPhoto 2>/dev/null || true
+      /usr/bin/dscl . -delete "/Users/$user" Picture 2>/dev/null || true
+      if /usr/bin/dsimport "$import" /Local/Default M; then
+        /usr/bin/dscl . -create "/Users/$user" Picture "$pic"
+      else
+        echo "warning: couldn't set $user's account picture" >&2
+      fi
+      rm -f "$import"
+    fi
+  '';
+
   config.launchd.user.agents.wallpaper = {
     command = "${render}/bin/production-wallpaper";
     serviceConfig = {
