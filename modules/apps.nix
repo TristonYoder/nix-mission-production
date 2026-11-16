@@ -72,8 +72,9 @@ let
 
     desktop-video = {
       dock = "/Applications/Blackmagic Desktop Video/Desktop Video Setup.app";
-      # Its updater prompts operators to update drivers; versions change only
-      # through the pin below.
+      # Its updater agent prompts operators at login to flash card firmware;
+      # versions change only through the pin below, and the deploy flashes
+      # firmware to match (roles/cg.nix).
       remove = [ "/Library/LaunchAgents/com.blackmagic-design.DesktopVideoUpdater.plist" ];
       installer = {
         url = "https://www.blackmagicdesign.com/support/family/capture-and-playback";
