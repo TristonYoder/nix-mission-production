@@ -10,5 +10,6 @@
     ./autologin.nix
     ./rustdesk.nix
     ./cleanup.nix
+    ./fonts.nix
   ];
 }

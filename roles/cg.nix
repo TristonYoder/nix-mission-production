@@ -41,4 +41,7 @@
       fi
     fi
   '';
+
+  # Fonts for graphics, on top of Inter (everywhere). Drop files in fonts/cg/.
+  production.fontDirs = [ ../fonts/cg ];
 }
