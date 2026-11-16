@@ -1,6 +1,6 @@
 # Draws the info card onto the main screen's wallpaper. Prepended by
 # modules/wallpaper.nix with machine-info.sh and: BACKDROP (other screens)
-# BASE (main screen) CARD_FONT CARD_FONT_BOLD TITLE LOCATION FUNCTION
+# BASE (main screen) CARD_FONT CARD_FONT_LABEL CARD_FONT_BOLD TITLE LOCATION FUNCTION
 # SUPPORT_FILE REVISION (empty = left out). Also draws a faint hostname/build tag in the
 # bottom-right corner, beside the Dock, so it shows up in screenshots.
 #
@@ -14,7 +14,7 @@ mkdir -p "$state"
 # The support number is decrypted by agenix at activation; absent = no line.
 SUPPORT="$(cat "$SUPPORT_FILE" 2>/dev/null || true)"
 
-row() { printf '%-9s %s' "$1" "$2"; }   # monospace: values line up
+row() { printf '%s\t%s' "$1" "$2"; }   # label<TAB>value; drawn as two columns
 
 # Live values come from machine-info.sh (prepended). Uptime in whole hours
 # only, so the card redraws hourly rather than every minute.
@@ -66,19 +66,25 @@ canvas_h=2160
 canvas_w=$(( canvas_h * screen_w / screen_h ))
 
 width=1100
+label_w=250   # label column; values take the rest
 # One margin (canvas px) for the corner tag's right and bottom, and the card's
 # right edge. The card sits one margin above the tag.
 margin=72
 tag_size=34
 # Small corner tag right of the Dock, so screenshots show which Mac and build.
 tag="$host${REVISION:+ · $REVISION}"
-args=(-background none -fill white -font "$CARD_FONT_BOLD" -pointsize 50
-      -size "${width}x" "caption:$TITLE" -font "$CARD_FONT" -pointsize 38)
+args=(-background none -fill white -font "$CARD_FONT_BOLD" -pointsize 52
+      -size "${width}x" "caption:$TITLE" -pointsize 38 -interline-spacing 14)
+# Each section: dimmed labels beside their values. Inter is proportional, so
+# the columns are separate images rather than space-padded lines.
 for s in "${sections[@]}"; do
   args+=(\( -size "${width}x34" xc:none \)
          \( -size "${width}x2" "xc:rgba(255,255,255,0.35)" \)
          \( -size "${width}x26" xc:none \)
-         \( -size "${width}x" -interline-spacing 10 "caption:$s" \))
+         \( \( -font "$CARD_FONT_LABEL" -fill 'rgba(255,255,255,0.6)' -size "${label_w}x"
+               "caption:$(cut -f1 <<<"$s")" \)
+            \( -font "$CARD_FONT" -fill white -size "$((width - label_w))x"
+               "caption:$(cut -f2- <<<"$s")" \) +append \))
 done
 
 out="$state/wallpaper-$(date +%s).png"
