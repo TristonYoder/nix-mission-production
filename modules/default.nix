@@ -9,6 +9,7 @@
     ./network.nix
     ./autologin.nix
     ./rustdesk.nix
+    ./nas.nix
     ./cleanup.nix
     ./fonts.nix
   ];

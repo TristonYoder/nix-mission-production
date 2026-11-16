@@ -44,4 +44,7 @@
 
   # Fonts for graphics, on top of Inter (everywhere). Drop files in fonts/cg/.
   production.fontDirs = [ ../fonts/cg ];
+
+  # Creative Team share from the NAS at /Volumes/Creative Team (modules/nas.nix).
+  production.nas.enable = true;
 }
