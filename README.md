@@ -18,7 +18,7 @@ the deploy keys builds every machine and pushes it over SSH.
 | `modules/network.nix` | Static IP, subnet, router and DNS on the built-in Ethernet for hosts with `ip` in the inventory. The Dante adapter stays on DHCP. |
 | `modules/fonts.nix`, `fonts/` | System-wide fonts: Inter on every Mac; files in `fonts/cg/` go on CG machines. |
 | `modules/wifi.nix` | Production WiFi, plus a watchdog (`wifi-watchdog.sh`) that turns WiFi off while a wired port has internet and back on when none does. |
-| `modules/vlans.nix` | Renames each port's network service after its VLAN or WiFi network (from `vlans` in `inventory.nix`), e.g. "Dante Primary (VLAN 910)", "Production Control - WiFi". |
+| `modules/vlans.nix` | Renames each port's network service after its VLAN or WiFi network (from `vlans` in `inventory.nix`), e.g. "Dante Primary", "Production Control - WiFi". |
 | `modules/nas.nix` | Mounts the NAS's Creative Team share at `/Volumes/Creative Team` as `missionproduction` (CG machines). Remounts after reboots and network drops. |
 | `modules/wifi.nix`, `modules/autologin.nix`, `modules/rustdesk.nix`, `modules/nas.nix` | Use `secrets/`; do nothing until the secret exists. |
 | `secrets/` | agenix secrets and host keys. |

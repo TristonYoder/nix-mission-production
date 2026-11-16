@@ -41,8 +41,8 @@
     dns = [ "1.1.1.1" "8.8.8.8" ];
   };
   # Networks by subnet. A port (wired or WiFi) whose address falls in one of
-  # these gets its network service renamed "<name> (VLAN <id>)", or just
-  # "<name>" without an id (modules/vlans.nix). That name is what System
+  # these gets its network service renamed "<name>" (modules/vlans.nix);
+  # `id` is the VLAN number, for reference only. That name is what System
   # Settings, the wallpaper card and the menu bar show.
   vlans = [
     { id = 1;   name = "Management";                subnet = "172.16.1.0/24"; }
