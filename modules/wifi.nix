@@ -38,7 +38,7 @@ in
     })
     (lib.mkIf (cfg.mode == "off") {
       system.activationScripts.postActivation.text = ''
-        networksetup -setairportpower ${device} off
+        networksetup -setairportpower "${device}" off
       '';
     })
   ];

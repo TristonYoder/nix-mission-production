@@ -93,7 +93,7 @@ in
       };
     };
 
-    production.apps = [ "chrome" ];
+    production.apps = [ "chrome" "google-drive" ];
     environment.systemPackages = [ pkgs.git ];
 
     # --- Never sleep, never lock ----------------------------------------------

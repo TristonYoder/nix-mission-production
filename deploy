@@ -147,7 +147,8 @@ cmd_deploy() {
   for h in "${hosts[@]}"; do deploy_host "$h"; done
 }
 
-# Runs on a fresh Mac; $1 is the operator user.
+# Runs on a fresh Mac; $1 is the operator user, $2 the host's .app casks
+# (cask|bundle per line, from production.caskApps).
 # shellcheck disable=SC2016  # expanded on the remote side
 PREPARE_MAC='set -e
   # Command Line Tools: Homebrew expects them. The in-progress marker makes
@@ -174,7 +175,22 @@ PREPARE_MAC='set -e
   if [ ! -e /run/current-system ] && ! grep -q "^trusted-users" /etc/nix/nix.conf; then
     echo "trusted-users = root $1" | sudo tee -a /etc/nix/nix.conf >/dev/null
     sudo launchctl kickstart -k system/org.nixos.nix-daemon
-  fi'
+  fi
+
+  # Hand-installed copies of apps Homebrew is about to manage: Homebrew refuses
+  # to install over a copy it did not put there. They belong to whoever
+  # installed them, so moving them needs root. Settings in ~/Library stay.
+  mkdir -p "$HOME/.Trash"
+  printf "%s\n" "$2" | while IFS="|" read -r cask app; do
+    [ -n "$cask" ] && [ -d "$app" ] || continue
+    [ -d "/opt/homebrew/Caskroom/$cask" ] && continue
+    dest="$HOME/.Trash/$(basename "$app" .app) (before Homebrew $(date +%Y%m%d-%H%M%S)).app"
+    if sudo mv "$app" "$dest"; then
+      echo "moved $app to the Trash"
+    else
+      echo "warning: could not move $app; drag it to the Trash at the Mac, then deploy again" >&2
+    fi
+  done'
 
 cmd_bootstrap() {
   local host=${1:?usage: $0 bootstrap <host> <address>} addr=${2:?usage: $0 bootstrap <host> <address>}
@@ -208,8 +224,13 @@ cmd_bootstrap() {
 
   pin_host "$host" "$addr"
 
+  local apps
+  # shellcheck disable=SC2016  # ${...} is Nix interpolation
+  apps=$(nix eval --raw ".#darwinConfigurations.$host.config.production.caskApps" \
+    --apply 'builtins.concatStringsSep "\n"')
+
   step "Install Command Line Tools and Nix (sudo password for $user)"
-  ssh "${SSH_PINNED[@]}" -t "$target" "bash -c $(printf %q "$PREPARE_MAC") _ $user"
+  ssh "${SSH_PINNED[@]}" -t "$target" "bash -c $(printf %q "$PREPARE_MAC") _ $user $(printf %q "$apps")"
 
   # Use the address given: until activation sets its name, the Mac does not
   # answer at <host>.local.
