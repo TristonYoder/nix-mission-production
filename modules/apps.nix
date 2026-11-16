@@ -11,6 +11,10 @@
 #                check path that exists once installed (used while unpinned)
 #                marker  optional file that puts the vendor's installer in silent
 #                        mode, created only while it runs
+#   dmg:       signed .app we pin from a public .dmg (no cask). Fields:
+#                url   download URL
+#                hash  `nix hash file <dmg>` (or from the release's SHA256SUMS)
+#                app   bundle name inside the .dmg, copied to /Applications
 #   app:       bundle a cask installs as a plain .app (not a .pkg). Homebrew
 #              won't install over a copy it didn't put there, so
 #              `./deploy bootstrap` moves such hand-installed copies aside.
@@ -96,14 +100,26 @@ let
       };
     };
 
+    # 13 Years: Developer ID signed and notarized builds from GitHub Releases.
+    # Bump both together: same release, same version.
     "13-years-producer" = {
       launch = "13 Years Producer";
       dock = "/Applications/13 Years Producer.app";
-      installer = {
-        url = "https://13years.app";
-        file = null; # ships as a .dmg; not pinned yet
-        hash = null;
-        check = "/Applications/13 Years Producer.app";
+      dmg = {
+        url = "https://github.com/TristonYoder/13years/releases/download/v1.8.0/13-Years-Producer-1.8.0.dmg";
+        hash = "sha256-PuSZ6N6bs3plzpfhjtaQvNGReXT+kfCvKZSYR8ij5FA=";
+        app = "13 Years Producer.app";
+      };
+    };
+
+    # The pager. Its settings: modules/pager.nix. Off the Dock: it lives in the
+    # menu bar.
+    "13-years-pager" = {
+      launch = "13 Years";
+      dmg = {
+        url = "https://github.com/TristonYoder/13years/releases/download/v1.8.0/13-Years-1.8.0.dmg";
+        hash = "sha256-wxtaCIdNehqrXLHvQ/oQekv+sprJzV00REKRj96w5J0=";
+        app = "13 Years.app";
       };
     };
 
@@ -161,6 +177,44 @@ let
           ${lib.optionalString (marker != null) "rm -f ${lib.escapeShellArg marker}"}
         fi
       '';
+
+  # Copy the .app out of the pinned .dmg when it differs from what this machine
+  # last installed. A running copy is quit first and reopened after, so the new
+  # version is what runs.
+  dmgScript = name: d:
+    let
+      dmg = pkgs.fetchurl { inherit (d) url hash; };
+      app = "/Applications/${d.app}";
+      process = lib.removeSuffix ".app" d.app;
+    in ''
+      if [ "$(cat /var/db/production-installers/${name} 2>/dev/null)" != ${dmg} ] || [ ! -d ${lib.escapeShellArg app} ]; then
+        echo "installing ${d.app}..."
+        mnt=$(mktemp -d)
+        if hdiutil attach -nobrowse -readonly -noverify -mountpoint "$mnt" ${dmg} >/dev/null; then
+          running=0
+          if pgrep -xq ${lib.escapeShellArg process}; then
+            running=1
+            pkill -x ${lib.escapeShellArg process} || true
+            for _ in $(seq 1 20); do pgrep -xq ${lib.escapeShellArg process} || break; sleep 0.5; done
+          fi
+          rm -rf ${lib.escapeShellArg app}
+          if ditto "$mnt/"${lib.escapeShellArg d.app} ${lib.escapeShellArg app}; then
+            mkdir -p /var/db/production-installers
+            echo ${dmg} > /var/db/production-installers/${name}
+          else
+            echo "error: copying ${d.app} failed" >&2
+          fi
+          hdiutil detach "$mnt" -quiet || true
+          if [ "$running" = 1 ]; then
+            uid=$(id -u ${lib.escapeShellArg config.system.primaryUser})
+            launchctl asuser "$uid" sudo -u ${lib.escapeShellArg config.system.primaryUser} open -a ${lib.escapeShellArg app} || true
+          fi
+        else
+          echo "error: mounting ${dmg} failed" >&2
+        fi
+        rmdir "$mnt" 2>/dev/null || true
+      fi
+    '';
 in
 {
   options.production = {
@@ -199,6 +253,7 @@ in
       }) (pick "launch");
 
     system.activationScripts.postActivation.text =
-      lib.concatStrings (lib.mapAttrsToList (name: app: installScript name app.installer) (pick "installer"));
+      lib.concatStrings (lib.mapAttrsToList (name: app: installScript name app.installer) (pick "installer"))
+      + lib.concatStrings (lib.mapAttrsToList (name: app: dmgScript name app.dmg) (pick "dmg"));
   };
 }

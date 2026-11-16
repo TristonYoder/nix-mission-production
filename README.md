@@ -11,6 +11,7 @@ the deploy keys builds every machine and pushes it over SSH.
 | `roles/` | What a kind of machine needs (`cg`, `audio`, `video`, `lighting`, `service-director`). |
 | `modules/production.nix` | Baseline for every Mac: name, operator account, key-only SSH, never sleep, no auto-updates. |
 | `modules/apps.nix` | App catalog: the only place that knows how an app is installed. |
+| `modules/pager.nix` | 13 Years pager on every Mac (menu bar cue light, countdown, messages): producer address (west-cg4), and per-role settings such as `production.pager.role`. |
 | `modules/wallpaper.nix` | Wallpaper with an info card: location, function, hostname, IPs, boot time, support number (from `secrets/support.age`). |
 | `modules/menubar.nix` | Machine name in the menu bar (SwiftBar), card details in its dropdown. |
 | `modules/cleanup.nix` | Deletes preinstalled apps (GarageBand, iMovie, Numbers, Pages), leftovers from the old CGs (Frame.io Transfer, 13 Years Pager) and vendor extras, hides desktop widgets. The Dock shows only the machine's apps. |
