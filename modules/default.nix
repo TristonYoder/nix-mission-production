@@ -7,6 +7,7 @@
     ./support.nix
     ./wifi.nix
     ./network.nix
+    ./vlans.nix
     ./autologin.nix
     ./rustdesk.nix
     ./nas.nix
