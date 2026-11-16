@@ -49,8 +49,9 @@ in
     enable = lib.mkEnableOption "the NAS share mounted at login";
     server = lib.mkOption {
       type = lib.types.str;
-      default = "Mission-NAS.local";
-      description = "NAS host name or IP (192.168.50.51 at the time of writing).";
+      # The NAS's static address. It also answers on 192.168.50.51 (DHCP).
+      default = "192.168.50.25";
+      description = "NAS host name or IP.";
     };
     share = lib.mkOption {
       type = lib.types.str;
