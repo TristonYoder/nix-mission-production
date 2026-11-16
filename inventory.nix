@@ -55,6 +55,11 @@
       apps = [ "propresenter" "resolume" ];
       function = "CG 5 - Hot Spare";
       ip = "192.168.105.95";
+      # For now this Mac (the one first set up as the new CG3) is on WiFi only:
+      # reach it there and leave WiFi alone, or the CG default (WiFi off)
+      # would cut it off mid-deploy. Drop both once it's wired at .95.
+      address = "192.168.100.70";
+      config = { production.wifi.mode = "unmanaged"; };
     };
     west-cg1 = { role = "cg"; apps = [ "propresenter" ]; ip = "192.168.105.91"; };
     west-cg2 = { role = "cg"; apps = [ "propresenter" ]; ip = "192.168.105.92"; };
