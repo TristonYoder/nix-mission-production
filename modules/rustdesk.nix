@@ -194,9 +194,12 @@ in
       ProgramArguments = [ rd "--server" ];
       WorkingDirectory = "${app}/Contents/MacOS/";
       LimitLoadToSessionType = [ "LoginWindow" "Aqua" ];
-      KeepAlive = { SuccessfulExit = false; AfterInitialDemand = false; };
+      # RustDesk's own plist only restarts it after a crash, but the server
+      # also exits cleanly (code 0) and then stays down until the next login.
+      # Always restart it; launchd is the watchdog.
+      KeepAlive = true;
       RunAtLoad = true;
-      ThrottleInterval = 1;
+      ThrottleInterval = 10;
       ProcessType = "Interactive";
     };
 
