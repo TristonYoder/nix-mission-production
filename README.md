@@ -93,21 +93,25 @@ start through `/bin/sh` or `/usr/bin/open`, whose identity never changes.
 
 Same as above, without wiping it. Do it outside the blackout window, at the Mac.
 
-1. **Rename the existing account to the operator account.** Sign in as a
-   temporary admin (System Settings → Users & Groups → Add User), then
-   right-click the old account → **Advanced Options**:
-   - Account name and home directory: `missionproduction` and
-     `/Users/missionproduction` (rename the folder in `/Users` to match first)
-   - Full name: **Mission Production**
+1. **Create the operator account next to the old one** (over SSH as the old
+   admin; it prompts for passwords):
 
-   Restart, log in to it, set the shared password, and delete the temporary
-   admin. Files, ProPresenter libraries and Chrome profiles all stay put.
-   Google Drive may ask to sign in again.
+   ```bash
+   sudo sysadminctl -addUser missionproduction -fullName "Mission Production" -admin -password -
+   sudo createhomedir -c -u missionproduction
+   ```
+
+   Its password doesn't matter: every deploy sets it from
+   `secrets/autologin-password.age` (and writes auto-login from the same
+   secret). Copy your SSH key into `/Users/missionproduction/.ssh/authorized_keys`
+   or let bootstrap ask for the password. The old account stays as a fallback;
+   copy what's needed out of it (e.g. `~/Documents/ProPresenter`) after the
+   deploy, and delete it once a service has run cleanly.
 2. Quit the show apps. Remote Login is usually on already.
 3. `./deploy bootstrap <name> <ip>` as for a new Mac. Hand-installed copies of
    apps that Homebrew now manages (Chrome, ProPresenter, Spotify, ...) go to the
    operator's Trash first, so Homebrew can install its own. Their settings stay.
-4. Restart, then do the "At the Mac again" steps. Desktop Video and Dante
+4. Restart (it logs in as the operator), then do the "At the Mac again" steps. Desktop Video and Dante
    Virtual Soundcard move to the pinned versions, so expect the system
    extension prompt again.
 5. **Re-patch Dante.** If the Mac's name changed, its Dante Virtual Soundcard
