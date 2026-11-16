@@ -6,7 +6,7 @@
 let
   line = v:
     let parts = lib.splitString "/" v.subnet;
-    in "${toString (v.id or "")}|${v.name}|${lib.elemAt parts 0}|${lib.elemAt parts 1}";
+    in "${v.name}|${lib.elemAt parts 0}|${lib.elemAt parts 1}";
 
   labeler = pkgs.writeShellApplication {
     name = "vlan-labels";
