@@ -7,7 +7,8 @@
 # agenix-encrypted. A Mac without one yet runs Syncthing with a throwaway
 # identity and syncs nothing.
 #
-# Web UI: https://<mac>:8384 from anywhere on the network, user `admin`, with
+# Web UI: https://<mac>:8384 from anywhere on the network, user
+# `missionproduction` (the operator, system.primaryUser), with
 # the password in secrets/syncthing-gui.age (shared by every Mac). Read it with:
 #   cd secrets && nix develop .. -c agenix -d syncthing-gui.age -i ~/.ssh/agenix
 # The settings below are reapplied at login and on every deploy that changes
@@ -105,8 +106,8 @@ let
 
     # Last: changing the GUI restarts its listener (and switches it to HTTPS).
     # Syncthing stores the password bcrypt-hashed.
-    api PATCH config/gui "$(${pkgs.jq}/bin/jq -n --rawfile pw ${config.age.secrets.syncthing-gui.path} \
-      '{address: "0.0.0.0:8384", useTLS: true, user: "admin", password: ($pw | rtrimstr("\n"))}')"
+    api PATCH config/gui "$(${pkgs.jq}/bin/jq -n --arg user ${lib.escapeShellArg user} --rawfile pw ${config.age.secrets.syncthing-gui.path} \
+      '{address: "0.0.0.0:8384", useTLS: true, user: $user, password: ($pw | rtrimstr("\n"))}')"
   '');
 in
 lib.mkMerge [
