@@ -93,6 +93,9 @@ in
     # The producer runs on west-cg4.
     production.pager.host = lib.mkDefault inventory.hosts.west-cg4.ip;
 
+    # Menu bar only, no Dock icon.
+    production.pager.menuBar.hideDockIcon = lib.mkDefault true;
+
     # After modules/apps.nix has installed or updated the app. Re-applied when
     # the settings change, and whenever the app was just reinstalled.
     system.activationScripts.postActivation.text = lib.mkIf (settings != { }) (lib.mkAfter ''
