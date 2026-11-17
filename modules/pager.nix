@@ -100,7 +100,7 @@ in
         && { [ "$(cat /var/db/production-installers/pager-preferences 2>/dev/null)" != ${stamp} ] \
           || [ /var/db/production-installers/13-years-pager -nt /var/db/production-installers/pager-preferences ]; }; then
         uid=$(id -u ${lib.escapeShellArg user})
-        if [ "$(stat -f %u /dev/console)" = "$uid" ]; then
+        if [ "$(/usr/bin/stat -f %u /dev/console)" = "$uid" ]; then
           echo "applying 13 Years pager settings..."
           if launchctl asuser "$uid" sudo -u ${lib.escapeShellArg user} ${apply}; then
             echo ${stamp} > /var/db/production-installers/pager-preferences
