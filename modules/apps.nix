@@ -47,7 +47,7 @@ let
     spotify = {
       cask = "spotify";
       app = "/Applications/Spotify.app";
-      dock = { app = "/Applications/Spotify.app"; group = "primary"; };
+      dock = { app = "/Applications/Spotify.app"; group = "support"; };
     };
 
     propresenter = {
