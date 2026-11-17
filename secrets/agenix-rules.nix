@@ -26,4 +26,5 @@ builtins.listToAttrs (map (n: { name = "syncthing/${n}.key.age"; value.publicKey
   "rustdesk.age".publicKeys = everyone;
   "nas-password.age".publicKeys = everyone;
   "syncthing-gui.age".publicKeys = everyone;
+  "syncthing-peers.age".publicKeys = everyone;
 }

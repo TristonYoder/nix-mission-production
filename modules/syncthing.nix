@@ -30,22 +30,24 @@ let
   dir = ../secrets/syncthing;
   home = "/Users/${user}/Library/Application Support/Syncthing";
   guiSecret = ../secrets/syncthing-gui.age;
+  # Devices outside the fleet that also share the Resolume folder, as JSON
+  # {"<name>": "<device ID>"}. Encrypted so personal devices aren't published.
+  # Edit: cd secrets && nix develop .. -c agenix -e syncthing-peers.age -i ~/.ssh/agenix
+  peersSecret = ../secrets/syncthing-peers.age;
+  hasPeersSecret = builtins.pathExists peersSecret;
 
   hasIdentity = name: builtins.pathExists (dir + "/${name}.key.age");
   deviceId = name: lib.removeSuffix "\n" (builtins.readFile (dir + "/${name}.id"));
   hasResolume = name: lib.elem "resolume" (inventory.hosts.${name}.apps or [ ]);
 
   resolume = lib.elem "resolume" config.production.apps;
-  # Other Resolume Macs, plus devices outside the fleet (`resolumePeers` in
-  # inventory.nix), which have no fixed address and dial in.
-  peers =
-    lib.genAttrs
-      (lib.filter (name: name != host && hasIdentity name && hasResolume name) (lib.attrNames inventory.hosts))
-      (name: let h = inventory.hosts.${name}; in {
-        id = deviceId name;
-        addresses = [ "tcp://${h.address or h.ip or "${name}.local"}:22000" "dynamic" ];
-      })
-    // lib.mapAttrs (_: id: { inherit id; addresses = [ "dynamic" ]; }) (inventory.resolumePeers or { });
+  # The other Resolume Macs. Outside devices (peersSecret) are added at runtime.
+  peers = lib.genAttrs
+    (lib.filter (name: name != host && hasIdentity name && hasResolume name) (lib.attrNames inventory.hosts))
+    (name: let h = inventory.hosts.${name}; in {
+      id = deviceId name;
+      addresses = [ "tcp://${h.address or h.ip or "${name}.local"}:22000" "dynamic" ];
+    });
 
   folderId = "resolume-arena";
   path = "/Users/${user}/Resolume Arena";
@@ -125,10 +127,20 @@ let
     ${lib.concatStringsSep "\n" (lib.mapAttrsToList (name: p:
       "api PUT config/devices/${p.id} ${lib.escapeShellArg (builtins.toJSON (device name p))}") peers)}
 
+    folder=${lib.escapeShellArg (builtins.toJSON folder)}
+  '' + lib.optionalString hasPeersSecret ''
+    # Outside devices: no fixed address, they dial in.
+    peers=${config.age.secrets.syncthing-peers.path}
+    while read -r d; do
+      api PUT "config/devices/$(${pkgs.jq}/bin/jq -r .deviceID <<< "$d")" "$d"
+    done < <(${pkgs.jq}/bin/jq -c 'to_entries[] | {name: .key, deviceID: .value, addresses: ["dynamic"]}' "$peers")
+    folder=$(${pkgs.jq}/bin/jq -c --slurpfile p "$peers" '.devices += ($p[0] | [.[] | {deviceID: .}])' <<< "$folder")
+  '' + ''
+
     # Ignores first, so the first scan never shares what they exclude.
     mkdir -p ${lib.escapeShellArg path}
     printf '%s\n' ${lib.escapeShellArgs ignores} > ${lib.escapeShellArg "${path}/.stignore"}
-    api PUT config/folders/${folderId} ${lib.escapeShellArg (builtins.toJSON folder)}
+    api PUT config/folders/${folderId} "$folder"
   '' else ''
     api DELETE config/folders/${folderId} 2>/dev/null || true
   '') + lib.optionalString (builtins.pathExists guiSecret) ''
@@ -158,6 +170,14 @@ lib.mkMerge [
     system.activationScripts.preActivation.text = ''
       sudo --user=${lib.escapeShellArg user} --set-home ${moveOutOfDocuments}
     '';
+  })
+
+  (lib.mkIf (resolume && hasPeersSecret) {
+    age.secrets.syncthing-peers = {
+      file = peersSecret;
+      owner = user;
+      mode = "0400";
+    };
   })
 
   (lib.mkIf (builtins.pathExists guiSecret) {
