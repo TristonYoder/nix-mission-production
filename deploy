@@ -147,6 +147,21 @@ cmd_deploy() {
   for h in "${hosts[@]}"; do deploy_host "$h"; done
 }
 
+# Syncthing identity (modules/syncthing.nix): device ID and certificate in the
+# clear, key encrypted with agenix. Made once and kept, so the ID never changes.
+syncthing_identity() { # <host>
+  local host=$1 dir=secrets/syncthing tmp
+  [ -f "$dir/$host.key.age" ] && return 0
+  tmp=$(mktemp -d)
+  mkdir -p "$dir"
+  nix develop -c syncthing generate --home "$tmp" > /dev/null 2>&1
+  nix develop -c syncthing device-id --home "$tmp" > "$dir/$host.id"
+  cp "$tmp/cert.pem" "$dir/$host.cert.pem"
+  (cd secrets && AGENIX_NEW_SYNCTHING=$host nix develop .. -c agenix -e "syncthing/$host.key.age" < "$tmp/key.pem")
+  rm -rf "$tmp"
+  echo "made Syncthing identity for $host: $(cat "$dir/$host.id")"
+}
+
 # Runs on a fresh Mac; $1 is the operator user, $2 the host's .app casks
 # (cask|bundle per line, from production.caskApps).
 # shellcheck disable=SC2016  # expanded on the remote side
@@ -217,6 +232,9 @@ cmd_bootstrap() {
     [ -f "$AGENIX_IDENTITY" ] || die "need the agenix admin key at $AGENIX_IDENTITY to re-key secrets"
     (cd secrets && nix develop .. -c agenix -r -i "$AGENIX_IDENTITY")
   fi
+
+  step "Syncthing identity"
+  syncthing_identity "$host"
   git add secrets
   if ! git diff --cached --quiet; then
     git commit -q -m "hosts: register $host" && echo "committed host key for $host (not pushed)"
