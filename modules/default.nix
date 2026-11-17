@@ -14,6 +14,7 @@
     ./nas.nix
     ./decklink.nix
     ./syncthing.nix
+    ./resolume.nix
     ./cleanup.nix
     ./fonts.nix
   ];

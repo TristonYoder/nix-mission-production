@@ -26,7 +26,8 @@
 #   after:     apps whose `ready` must pass before this one launches at login
 #              (only those this machine has; gives up after 10 seconds and
 #              launches anyway)
-#   dock:      where the app sits in the Dock (apps without one stay off it):
+#   dock:      where the app sits in the Dock (apps without one stay off it;
+#              a list for an app that brings more than one tile):
 #                app    bundle path; left off until it's actually installed
 #                group  primary (the machine's production apps), support
 #                       (drivers, audio routing) or web; see dockGroups
@@ -67,7 +68,10 @@ let
       cask = "resolume-arena";
       launch = "Arena";
       after = [ "dante-virtual-soundcard" ];
-      dock = { app = "/Applications/Resolume Arena/Arena.app"; group = "primary"; };
+      dock = [
+        { app = "/Applications/Resolume Arena/Arena.app"; group = "primary"; }
+        { app = "/Applications/This Week.app"; group = "primary"; } # modules/resolume.nix
+      ];
     };
 
     dante-controller = {
@@ -162,7 +166,8 @@ let
   # both have an installed app.
   dockGroups = [ "primary" "support" "web" ];
   dockApps = group:
-    lib.concatMap (name: lib.optional ((catalog.${name}.dock.group or null) == group) catalog.${name}.dock.app) names;
+    lib.concatMap (name:
+      map (d: d.app) (lib.filter (d: d.group == group) (lib.toList (catalog.${name}.dock or [ ])))) names;
 
   # The .pkg enters the deploy Mac's store via `nix-store --add-fixed` (done by
   # ./deploy) and reaches each machine inside the system closure.
