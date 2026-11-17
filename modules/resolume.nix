@@ -1,10 +1,12 @@
 # "This Week" in the Dock next to Arena (Macs with Resolume): opens the week's
 # show composition, ~/Resolume Arena/Compositions/YYYY.MM.DD.avc.
 #
-# A show is named for its first day (2026.11.14 covers the 14th and 15th), so
-# the button opens the earliest composition dated yesterday or later -- Monday
-# through Sunday the 15th open 2026.11.14, Monday the 16th opens the next one --
-# and the most recent one when none is that new. Sync-conflict copies don't
+# A show is named for its first day (2026.11.14 covers the 14th and 15th) and
+# a week runs Monday to Sunday, so the button opens the earliest composition
+# dated this week's Monday or later -- Monday the 9th through Sunday the 15th
+# open 2026.11.14, Monday the 16th opens the next one -- and the most recent
+# one when none is that new. It also runs at login in place of Arena
+# (`loginApp` in modules/apps.nix). Sync-conflict copies don't
 # match the name, so they're never picked.
 #
 # If Arena already has that show open it's just brought forward; otherwise
@@ -19,12 +21,12 @@ let
   # ~/Documents makes macOS ask for permission first.
   launcher = pkgs.writeShellScript "this-week" ''
     dir="$HOME/Resolume Arena/Compositions"
-    yesterday=''${THIS_WEEK_YESTERDAY:-$(/bin/date -v-1d +%Y.%m.%d)}
+    monday=''${THIS_WEEK_MONDAY:-$(/bin/date -v-mon +%Y.%m.%d)} # today, on a Monday
     pick= latest=
     for f in "$dir"/[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9].avc; do
       [ -e "$f" ] || continue
       latest=$f
-      if [ -z "$pick" ] && [[ ! "$(basename "$f" .avc)" < "$yesterday" ]]; then pick=$f; fi
+      if [ -z "$pick" ] && [[ ! "$(basename "$f" .avc)" < "$monday" ]]; then pick=$f; fi
     done
     pick=''${pick:-$latest}
     if [ -z "$pick" ]; then

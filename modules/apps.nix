@@ -22,6 +22,8 @@
 #              already running, so a deploy that reloads the agent doesn't
 #              send it a reopen: SwiftBar answers one with an alert)
 #   hidden:    launch it hidden (`open -j`), at login and when a deploy reopens it
+#   loginApp:  app opened at login instead of `launch` (still skipped while
+#              `launch` is running)
 #   ready:     shell test that passes once the app's service is up
 #   after:     apps whose `ready` must pass before this one launches at login
 #              (only those this machine has; gives up after 10 seconds and
@@ -67,6 +69,7 @@ let
     resolume = {
       cask = "resolume-arena";
       launch = "Arena";
+      loginApp = "/Applications/This Week.app"; # opens Arena on the week's show
       after = [ "dante-virtual-soundcard" ];
       dock = [
         { app = "/Applications/Resolume Arena/Arena.app"; group = "primary"; }
@@ -225,7 +228,7 @@ let
         fi
         sleep 1
       done
-    '' + "exec /usr/bin/open ${openFlags app} -a ${lib.escapeShellArg app.launch}";
+    '' + "exec /usr/bin/open ${openFlags app} -a ${lib.escapeShellArg (app.loginApp or app.launch)}";
 
   # Copy the .app out of the pinned .dmg when it differs from what this machine
   # last installed. A running copy is quit first and reopened after, so the new
@@ -307,6 +310,7 @@ in
         addTile = path: ''
           if [ -e ${lib.escapeShellArg path} ]; then
             groupTiles="$groupTiles"${tile path}
+            tileCount=$((tileCount + 1))
           else
             echo "note: ${path} is not installed; leaving it off the Dock" >&2
           fi
@@ -322,10 +326,18 @@ in
       in ''
         echo >&2 "setting the Dock..."
         dockTiles=
+        tileCount=0
         ${lib.concatMapStrings addGroup dockGroups}
-        launchctl asuser "$(id -u -- ${user})" sudo --user=${user} -- defaults write com.apple.dock persistent-apps \
-          '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array>'"$dockTiles"'</array></plist>'
-        killall -qu ${user} Dock || true
+        # A Dock being killed can save its old list over the new one, so check
+        # that every tile stuck and write it again if not.
+        for _ in 1 2 3; do
+          launchctl asuser "$(id -u -- ${user})" sudo --user=${user} -- defaults write com.apple.dock persistent-apps \
+            '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array>'"$dockTiles"'</array></plist>'
+          killall -qu ${user} Dock || true
+          sleep 3
+          [ "$(launchctl asuser "$(id -u -- ${user})" sudo --user=${user} -- defaults read com.apple.dock persistent-apps 2>/dev/null | grep -c _CFURLString)" -ge "$tileCount" ] && break
+          echo "note: the Dock dropped tiles; writing it again" >&2
+        done
       ''))
     ];
 
