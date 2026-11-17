@@ -70,6 +70,21 @@ let
     mkdir -p "$(dirname "$docs")"
     ln -s "$real" "$docs"
   '';
+  # Compositions reference media by absolute path, so ones built on another
+  # Mac point into that Mac's Resolume folder. Make those paths lead here.
+  authorPaths = [
+    "/Users/tristonyoder/Resolume Arena"
+    "/Users/tristonyoder/Documents/Resolume Arena"
+  ];
+  linkAuthorPaths = lib.concatMapStrings (a: ''
+    if [ -L ${lib.escapeShellArg a} ] || [ ! -e ${lib.escapeShellArg a} ]; then
+      mkdir -p ${lib.escapeShellArg (dirOf a)}
+      ln -sfn ${lib.escapeShellArg path} ${lib.escapeShellArg a}
+    else
+      echo "warning: "${lib.escapeShellArg a}" exists and isn't a symlink; leaving it" >&2
+    fi
+  '') authorPaths;
+
   ignores = [
     "// Written by modules/syncthing.nix on every deploy."
     "(?d).DS_Store"
@@ -169,6 +184,7 @@ lib.mkMerge [
   (lib.mkIf resolume {
     system.activationScripts.preActivation.text = ''
       sudo --user=${lib.escapeShellArg user} --set-home ${moveOutOfDocuments}
+      ${linkAuthorPaths}
     '';
   })
 
