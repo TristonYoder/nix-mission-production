@@ -63,6 +63,12 @@
   # ip:    static address on the production network (see `network` above)
   # config: optional inline nix-darwin module for one-off overrides
   # Machines are reached at `address`, else `ip`, else <name>.local.
+  # Syncthing devices outside the fleet that also share the Resolume folder
+  # (modules/syncthing.nix): name -> device ID (public). They dial the Macs.
+  resolumePeers = {
+    tristonyoder-mbp = "TNIZICU-62DFEBN-7ENX4JW-FZLHSPF-D7VBYKF-7WXQGRF-DROD2L7-ZCOWGQU";
+  };
+
   hosts = {
     # Hot spare: carries every CG app so it can stand in for any of them.
     west-cg5hs = {
