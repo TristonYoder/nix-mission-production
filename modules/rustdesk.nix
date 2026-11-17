@@ -141,11 +141,16 @@ let
         echo "warning: no RustDesk ID yet; enrollment runs on the next deploy" >&2
         exit 0
       fi
+      # Re-enroll when the ID, settings or the Mac's name change, so a renamed
+      # Mac shows up under its new name (the watchdog notices within 15 min).
+      # The name has its own stamp; Macs enrolled before it existed adopt
+      # their current name instead of all re-enrolling at once.
+      name=$(scutil --get ComputerName)
       enrolled="$id $want"
       if [ "$(cat "$state/enrolled" 2>/dev/null || true)" = "$enrolled" ]; then
-        exit 0
+        [ -e "$state/enrolled-name" ] || printf %s "$name" > "$state/enrolled-name"
+        [ "$(cat "$state/enrolled-name")" = "$name" ] && exit 0
       fi
-      name=$(scutil --get ComputerName)
       # Empty response = success, which the CLI prints as "Done!".
       out=$(${rd} --assign --token "$TOKEN" \
         --device_name "$name" \
@@ -156,7 +161,8 @@ let
       case "$out" in
         *Done*)
           printf %s "$enrolled" > "$state/enrolled"
-          echo "RustDesk $id enrolled in ${group}" ;;
+          printf %s "$name" > "$state/enrolled-name"
+          echo "RustDesk $id enrolled in ${group} as $name" ;;
         *)
           echo "warning: RustDesk enrollment failed: $out" >&2 ;;
       esac
