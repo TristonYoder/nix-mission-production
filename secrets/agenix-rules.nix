@@ -10,7 +10,15 @@ let
     (builtins.filter (f: builtins.match ".*\\.pub" f != null)
       (builtins.attrNames (builtins.readDir ./host-keys)));
   everyone = inventory.adminKeys ++ hostKeys;
+
+  # Each Mac's Syncthing key, made by `./deploy bootstrap`. Listed once it
+  # exists (rekeying needs every listed file); ./deploy names the one it is
+  # creating in AGENIX_NEW_SYNCTHING.
+  syncthingHosts = builtins.filter
+    (n: builtins.pathExists (./syncthing + "/${n}.key.age") || n == builtins.getEnv "AGENIX_NEW_SYNCTHING")
+    (builtins.attrNames inventory.hosts);
 in
+builtins.listToAttrs (map (n: { name = "syncthing/${n}.key.age"; value.publicKeys = everyone; }) syncthingHosts) //
 {
   "wifi.age".publicKeys = everyone;
   "autologin-password.age".publicKeys = everyone;

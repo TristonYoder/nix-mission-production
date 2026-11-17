@@ -63,7 +63,7 @@
       inherit inventory;
 
       devShells.${system}.default = nixpkgs.legacyPackages.${system}.mkShell {
-        packages = [ agenix.packages.${system}.default ];
+        packages = [ agenix.packages.${system}.default nixpkgs.legacyPackages.${system}.syncthing ];
       };
     };
 }

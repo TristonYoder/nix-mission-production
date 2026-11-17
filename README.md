@@ -20,7 +20,7 @@ the deploy keys builds every machine and pushes it over SSH.
 | `modules/fonts.nix`, `fonts/` | System-wide fonts: Inter on every Mac; files in `fonts/cg/` go on CG machines. |
 | `modules/wifi.nix` | Production WiFi, plus a watchdog (`wifi-watchdog.sh`) that turns WiFi off while a wired port has internet and back on when none does. |
 | `modules/vlans.nix` | Renames each port's network service after its VLAN or WiFi network (from `vlans` in `inventory.nix`), e.g. "Dante Primary", "Production Control - WiFi". |
-| `modules/syncthing.nix` | Syncthing on every Mac with Resolume (web UI at http://127.0.0.1:8384 on the Mac). Nix build, so it never self-upgrades. |
+| `modules/syncthing.nix` | Syncthing on every Mac (Nix build, never self-upgrades). Macs with Resolume keep `~/Documents/Resolume Arena` in sync (not `Preferences` or `Extra Effects`). Identities in `secrets/syncthing`, made by `./deploy bootstrap`. |
 | `modules/nas.nix` | Mounts the NAS's Creative Team share at `/Volumes/Creative Team` as `missionproduction` (CG machines). Remounts after reboots and network drops. |
 | `modules/wifi.nix`, `modules/autologin.nix`, `modules/rustdesk.nix`, `modules/nas.nix` | Use `secrets/`; do nothing until the secret exists. |
 | `secrets/` | agenix secrets and host keys. |
@@ -76,7 +76,8 @@ Current fleet:
    ```
 
    This installs the deploy keys (asks for the operator password once), registers
-   the host key and re-keys secrets (committing that change), installs the Xcode
+   the host key, re-keys secrets and makes the Mac's Syncthing identity
+   (committing that change), installs the Xcode
    Command Line Tools and Nix, then deploys. Push the commit afterwards.
 
 **At the Mac again:**
