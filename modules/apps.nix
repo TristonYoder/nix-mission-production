@@ -310,7 +310,7 @@ in
         addTile = path: ''
           if [ -e ${lib.escapeShellArg path} ]; then
             groupTiles="$groupTiles"${tile path}
-            tilePaths="$tilePaths"${lib.escapeShellArg "${path}/"}$'\n'
+            tilePaths="$tilePaths"${lib.escapeShellArg path}$'\n'
           else
             echo "note: ${path} is not installed; leaving it off the Dock" >&2
           fi
@@ -329,14 +329,15 @@ in
         tilePaths=
         ${lib.concatMapStrings addGroup dockGroups}
         # A Dock that quits normally saves its old list over the new one, so it
-        # is killed outright; still, check the tiles stuck, in order.
+        # is killed outright; still, check the tiles stuck, in order (as plain
+        # paths until the Dock reloads, file:// URLs after).
         for _ in 1 2 3; do
           launchctl asuser "$(id -u -- ${user})" sudo --user=${user} -- defaults write com.apple.dock persistent-apps \
             '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array>'"$dockTiles"'</array></plist>'
           killall -KILL -qu ${user} Dock || true
           sleep 3
           current=$(launchctl asuser "$(id -u -- ${user})" sudo --user=${user} -- defaults read com.apple.dock persistent-apps 2>/dev/null |
-            sed -n 's|.*"_CFURLString" = "file://\(.*\)";|\1|p' | sed 's/%20/ /g')
+            sed -nE 's|.*"?_CFURLString"? = "?(file://)?([^";]*)"?;|\2|p' | sed 's/%20/ /g; s|/$||')
           [ "$current"$'\n' = "$tilePaths" ] && break
           echo "note: the Dock didn't take the new tiles; writing them again" >&2
         done
