@@ -7,9 +7,11 @@
 # agenix-encrypted. A Mac without one yet runs Syncthing with a throwaway
 # identity and syncs nothing.
 #
+# Web UI: https://<mac>:8384 from anywhere on the network, user `admin`, with
+# the password in secrets/syncthing-gui.age (shared by every Mac). Read it with:
+#   cd secrets && nix develop .. -c agenix -d syncthing-gui.age -i ~/.ssh/agenix
 # The settings below are reapplied at login and on every deploy that changes
-# them; anything else can still be changed in the web UI at
-# http://127.0.0.1:8384 on the Mac.
+# them; anything else can still be changed in the web UI.
 #
 # From nixpkgs rather than the Homebrew cask: the Nix build has Syncthing's
 # self-upgrade compiled out, so it only changes when a deploy changes it.
@@ -20,6 +22,7 @@ let
   host = config.production.hostName;
   dir = ../secrets/syncthing;
   home = "/Users/${user}/Library/Application Support/Syncthing";
+  guiSecret = ../secrets/syncthing-gui.age;
 
   hasIdentity = name: builtins.pathExists (dir + "/${name}.key.age");
   deviceId = name: lib.removeSuffix "\n" (builtins.readFile (dir + "/${name}.id"));
@@ -72,17 +75,19 @@ let
   configure = pkgs.writeShellScript "syncthing-config" (''
     set -eu
     xml=${lib.escapeShellArg "${home}/config.xml"}
-    key=
+    key= base=
+    # Plain HTTP until the GUI's TLS is on, HTTPS (self-signed) after.
     for _ in $(seq 1 60); do
       [ -f "$xml" ] && key=$(sed -n 's:.*<apikey>\(.*\)</apikey>.*:\1:p' "$xml")
-      [ -n "$key" ] && /usr/bin/curl -sf -H "X-API-Key: $key" http://127.0.0.1:8384/rest/system/ping >/dev/null && break
-      key=
+      for b in https://127.0.0.1:8384 http://127.0.0.1:8384; do
+        [ -n "$key" ] && /usr/bin/curl -skf -H "X-API-Key: $key" "$b/rest/system/ping" >/dev/null && { base=$b; break 2; }
+      done
       sleep 2
     done
-    [ -n "$key" ] || { echo "Syncthing API not up; settings not applied" >&2; exit 1; }
+    [ -n "$base" ] || { echo "Syncthing API not up; settings not applied" >&2; exit 1; }
     api() {
-      /usr/bin/curl -sSf -o /dev/null -X "$1" -H "X-API-Key: $key" -H "Content-Type: application/json" \
-        "http://127.0.0.1:8384/rest/$2" ''${3:+--data "$3"}
+      /usr/bin/curl -sSkf -o /dev/null -X "$1" -H "X-API-Key: $key" -H "Content-Type: application/json" \
+        "$base/rest/$2" ''${3:+--data "$3"}
     }
 
     api PATCH config/options ${lib.escapeShellArg (builtins.toJSON { urAccepted = -1; })}
@@ -96,7 +101,13 @@ let
     api PUT config/folders/${folderId} ${lib.escapeShellArg (builtins.toJSON folder)}
   '' else ''
     api DELETE config/folders/${folderId} 2>/dev/null || true
-  ''));
+  '') + lib.optionalString (builtins.pathExists guiSecret) ''
+
+    # Last: changing the GUI restarts its listener (and switches it to HTTPS).
+    # Syncthing stores the password bcrypt-hashed.
+    api PATCH config/gui "$(${pkgs.jq}/bin/jq -n --rawfile pw ${config.age.secrets.syncthing-gui.path} \
+      '{address: "0.0.0.0:8384", useTLS: true, user: "admin", password: ($pw | rtrimstr("\n"))}')"
+  '');
 in
 lib.mkMerge [
   {
@@ -112,6 +123,14 @@ lib.mkMerge [
       ProcessType = "Background";
     };
   }
+
+  (lib.mkIf (builtins.pathExists guiSecret) {
+    age.secrets.syncthing-gui = {
+      file = guiSecret;
+      owner = user;
+      mode = "0400";
+    };
+  })
 
   (lib.mkIf (hasIdentity host) {
     age.secrets.syncthing-key = {
