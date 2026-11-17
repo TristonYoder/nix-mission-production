@@ -13,6 +13,7 @@
     ./rustdesk.nix
     ./nas.nix
     ./decklink.nix
+    ./syncthing.nix
     ./cleanup.nix
     ./fonts.nix
   ];
