@@ -14,13 +14,14 @@ the deploy keys builds every machine and pushes it over SSH.
 | `modules/pager.nix` | 13 Years pager on every Mac (menu bar cue light, countdown, messages): producer address (west-cg4), and per-role settings such as `production.pager.role`. |
 | `modules/wallpaper.nix` | Wallpaper with an info card: location, function, hostname, IPs, boot time, support number (from `secrets/support.age`). |
 | `modules/menubar.nix` | Machine name in the menu bar (SwiftBar), card details in its dropdown. |
-| `modules/cleanup.nix` | Deletes preinstalled apps (GarageBand, iMovie, Numbers, Pages), leftovers from the old CGs (Frame.io Transfer, 13 Years Pager) and vendor extras, hides desktop widgets. The Dock shows only the machine's apps. |
+| `modules/cleanup.nix` | Deletes preinstalled apps (GarageBand, iMovie, Numbers, Pages), leftovers from the old CGs (Frame.io Transfer, 13 Years Pager) and vendor extras, hides desktop widgets. The Dock shows only the machine's apps, and only once they're installed (no "?" tiles). |
 | `modules/rustdesk.nix` | Unattended RustDesk: system service, permanent password, enrollment in the RustDesk console's "Mission Production" group. Server details come from `secrets/rustdesk.age`. |
 | `modules/network.nix` | Static IP, subnet, router and DNS on the built-in Ethernet for hosts with `ip` in the inventory. The Dante adapter stays on DHCP. |
 | `modules/fonts.nix`, `fonts/` | System-wide fonts: Inter on every Mac; files in `fonts/cg/` go on CG machines. |
 | `modules/wifi.nix` | Production WiFi, plus a watchdog (`wifi-watchdog.sh`) that turns WiFi off while a wired port has internet and back on when none does. |
 | `modules/vlans.nix` | Renames each port's network service after its VLAN or WiFi network (from `vlans` in `inventory.nix`), e.g. "Dante Primary", "Production Control - WiFi". |
-| `modules/wifi.nix`, `modules/autologin.nix`, `modules/rustdesk.nix` | Use `secrets/`; do nothing until the secret exists. |
+| `modules/nas.nix` | Mounts the NAS's Creative Team share at `/Volumes/Creative Team` as `missionproduction` (CG machines). Remounts after reboots and network drops. |
+| `modules/wifi.nix`, `modules/autologin.nix`, `modules/rustdesk.nix`, `modules/nas.nix` | Use `secrets/`; do nothing until the secret exists. |
 | `secrets/` | agenix secrets and host keys. |
 | `deploy` | Build, copy, activate. Also bootstraps new Macs. |
 
@@ -192,12 +193,20 @@ Every secret is readable by the admin key and every registered host.
 | `wifi.age` | `SSID=...` and `PSK=...` lines |
 | `autologin-password.age` | the operator password (enables auto-login) |
 | `support.age` | the support phone number shown on the wallpaper and menu bar |
+| `nas-password.age` | the `missionproduction` account's password on the NAS (Mission-NAS) |
 | `rustdesk.age` | `SERVER=`, `KEY=`, optional `API=`, `PASSWORD=` (unattended access) and `TOKEN=` (console API token) lines |
 
 ```bash
 cd secrets
 nix develop .. -c agenix -e wifi.age -i ~/.ssh/agenix
 nix develop .. -c agenix -e support.age -i ~/.ssh/agenix
+```
+
+To set a password without it landing in an editor buffer or shell history
+(zsh), pipe it in:
+
+```bash
+cd secrets && read -rs "pw?NAS password: " && printf %s "$pw" | nix develop .. -c agenix -e nas-password.age -i ~/.ssh/agenix; unset pw
 ```
 
 The support number is encrypted so the real line isn't published for spam
