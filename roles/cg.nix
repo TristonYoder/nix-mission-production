@@ -53,4 +53,35 @@
 
   # Creative Team share from the NAS at /Volumes/Creative Team (modules/nas.nix).
   production.nas.enable = true;
+
+  # Card settings by model (modules/decklink.nix), read from west-cg2 with
+  # `decklink-config dump`. A block only acts on Macs with that card: today
+  # west-cg1 and west-cg2; west-cg4 and west-cg5hs once they have a Duo 2.
+  # West-cg3's 8K Pro Mini is set on that host in inventory.nix.
+  production.decklink."DeckLink Duo 2" = {
+    # Four connectors, each its own device.
+    profile = "TwoSubDevicesHalfDuplex";
+    all = {
+      DefaultVideoOutputMode = "Hp59"; # 1080p59.94
+      DefaultVideoOutputModeFlags = 0;
+      VideoOutputConnection = 1; # SDI
+      VideoOutputConversionMode = "none";
+      VideoOutputIdleOperation = "blac"; # black when no app is playing
+      SDIOutputLinkConfiguration = "lcsl"; # single link
+      SMPTELevelAOutput = false; # 3G Level B
+      "444SDIVideoOutput" = false; # 4:2:2
+      Output1080pAsPsF = false;
+      LowLatencyVideoOutput = false;
+      FieldFlickerRemoval = true;
+      PlaybackGroup = 2;
+      ReferenceInputTimingOffset = 0;
+    };
+    # Sub-device index follows the driver, not the connector numbering.
+    subDevices = {
+      "0".DeviceInformationLabel = "1. Fill";
+      "1".DeviceInformationLabel = "3. Confidence Left";
+      "2".DeviceInformationLabel = "2. Key";
+      "3".DeviceInformationLabel = "4. Confidence Right";
+    };
+  };
 }
