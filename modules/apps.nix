@@ -310,7 +310,7 @@ in
         addTile = path: ''
           if [ -e ${lib.escapeShellArg path} ]; then
             groupTiles="$groupTiles"${tile path}
-            tileCount=$((tileCount + 1))
+            tilePaths="$tilePaths"${lib.escapeShellArg "${path}/"}$'\n'
           else
             echo "note: ${path} is not installed; leaving it off the Dock" >&2
           fi
@@ -326,17 +326,19 @@ in
       in ''
         echo >&2 "setting the Dock..."
         dockTiles=
-        tileCount=0
+        tilePaths=
         ${lib.concatMapStrings addGroup dockGroups}
-        # A Dock being killed can save its old list over the new one, so check
-        # that every tile stuck and write it again if not.
+        # A Dock that quits normally saves its old list over the new one, so it
+        # is killed outright; still, check the tiles stuck, in order.
         for _ in 1 2 3; do
           launchctl asuser "$(id -u -- ${user})" sudo --user=${user} -- defaults write com.apple.dock persistent-apps \
             '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array>'"$dockTiles"'</array></plist>'
-          killall -qu ${user} Dock || true
+          killall -KILL -qu ${user} Dock || true
           sleep 3
-          [ "$(launchctl asuser "$(id -u -- ${user})" sudo --user=${user} -- defaults read com.apple.dock persistent-apps 2>/dev/null | grep -c _CFURLString)" -ge "$tileCount" ] && break
-          echo "note: the Dock dropped tiles; writing it again" >&2
+          current=$(launchctl asuser "$(id -u -- ${user})" sudo --user=${user} -- defaults read com.apple.dock persistent-apps 2>/dev/null |
+            sed -n 's|.*"_CFURLString" = "file://\(.*\)";|\1|p' | sed 's/%20/ /g')
+          [ "$current"$'\n' = "$tilePaths" ] && break
+          echo "note: the Dock didn't take the new tiles; writing them again" >&2
         done
       ''))
     ];
