@@ -1,6 +1,12 @@
 # Syncthing on every Mac, running as the operator from login. Every Mac with
-# Resolume keeps ~/Documents/Resolume Arena in sync with the others, apart from
-# the per-machine parts in `ignores`.
+# Resolume keeps its Resolume folder in sync with the others, apart from the
+# per-machine parts in `ignores`.
+#
+# On those Macs the folder lives at ~/Resolume Arena, and ~/Documents/Resolume
+# Arena (where Resolume looks) is a symlink to it: macOS asks before a
+# background process like Syncthing reads ~/Documents, and blocks it until
+# someone clicks Allow at the Mac -- again after any update. Activation moves
+# an existing folder out of Documents once.
 #
 # Each Mac's identity lives in secrets/syncthing (written by
 # `./deploy bootstrap`): <host>.id and <host>.cert.pem are public, the key is
@@ -34,7 +40,26 @@ let
     (lib.attrNames inventory.hosts);
 
   folderId = "resolume-arena";
-  path = "/Users/${user}/Documents/Resolume Arena";
+  path = "/Users/${user}/Resolume Arena";
+  docsPath = "/Users/${user}/Documents/Resolume Arena";
+
+  # Runs as the operator, before programs.resolume-effects installs into it.
+  moveOutOfDocuments = pkgs.writeShellScript "resolume-folder" ''
+    set -eu
+    real=${lib.escapeShellArg path} docs=${lib.escapeShellArg docsPath}
+    [ ! -L "$docs" ] || exit 0
+    if [ -d "$docs" ] && [ -e "$real" ]; then
+      echo "warning: both $docs and $real exist; merge them by hand, then deploy again" >&2
+      exit 0
+    elif [ -d "$docs" ]; then
+      mv "$docs" "$real"
+      echo "moved $docs to $real"
+    else
+      mkdir -p "$real"
+    fi
+    mkdir -p "$(dirname "$docs")"
+    ln -s "$real" "$docs"
+  '';
   ignores = [
     "// Written by modules/syncthing.nix on every deploy."
     "(?d).DS_Store"
@@ -124,6 +149,12 @@ lib.mkMerge [
       ProcessType = "Background";
     };
   }
+
+  (lib.mkIf resolume {
+    system.activationScripts.preActivation.text = ''
+      sudo --user=${lib.escapeShellArg user} --set-home ${moveOutOfDocuments}
+    '';
+  })
 
   (lib.mkIf (builtins.pathExists guiSecret) {
     age.secrets.syncthing-gui = {
