@@ -4,6 +4,7 @@
 
 {
   production.apps = [ "desktop-video" "dante-virtual-soundcard" ];
+  production.pager.role = "CG";
 
   # Lyric Flip blend mode into ~/Documents/Resolume Arena/Extra Effects, plus the
   # Dynamic Lyric ProPresenter theme in ~/Documents/7 & Co Resolume Effects.

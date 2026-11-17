@@ -2,6 +2,7 @@
   imports = [
     ./production.nix
     ./apps.nix
+    ./pager.nix
     ./wallpaper.nix
     ./menubar.nix
     ./support.nix
