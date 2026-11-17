@@ -5,6 +5,12 @@
 
 {
   production.apps = [ "desktop-video" "dante-virtual-soundcard" "sonnet-twin10g" ];
+  production.pager.role = "CG";
+
+  # Lyric Flip blend mode into ~/Documents/Resolume Arena/Extra Effects, plus the
+  # Dynamic Lyric ProPresenter theme in ~/Documents/7 & Co Resolume Effects.
+  # Reinstalled on each deploy, so versions only move with flake.lock.
+  programs.resolume-effects.enable = true;
 
   # Wired only: a second network over WiFi gives the Mac a competing default
   # route (the old CG3 sat on the admin network this way).
@@ -45,4 +51,7 @@
 
   # Fonts for graphics, on top of Inter (everywhere). Drop files in fonts/cg/.
   production.fontDirs = [ ../fonts/cg ];
+
+  # Creative Team share from the NAS at /Volumes/Creative Team (modules/nas.nix).
+  production.nas.enable = true;
 }

@@ -16,4 +16,5 @@ in
   "autologin-password.age".publicKeys = everyone;
   "support.age".publicKeys = everyone;
   "rustdesk.age".publicKeys = everyone;
+  "nas-password.age".publicKeys = everyone;
 }

@@ -2,6 +2,7 @@
   imports = [
     ./production.nix
     ./apps.nix
+    ./pager.nix
     ./wallpaper.nix
     ./menubar.nix
     ./support.nix
@@ -10,6 +11,7 @@
     ./vlans.nix
     ./autologin.nix
     ./rustdesk.nix
+    ./nas.nix
     ./cleanup.nix
     ./fonts.nix
   ];

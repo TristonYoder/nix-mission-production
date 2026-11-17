@@ -37,6 +37,23 @@
         "type": "github"
       }
     },
+    "ffgl": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1789714416,
+        "narHash": "sha256-7neI2o6dudN0LCBsfe+6bhspnxu7EB53g29+U4dlMY4=",
+        "owner": "resolume",
+        "repo": "ffgl",
+        "rev": "5b6e07840277df9ec35a228b9eb067636316350f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "resolume",
+        "repo": "ffgl",
+        "rev": "5b6e07840277df9ec35a228b9eb067636316350f",
+        "type": "github"
+      }
+    },
     "nix-darwin": {
       "inputs": {
         "nixpkgs": [
@@ -108,13 +125,35 @@
         "type": "github"
       }
     },
+    "resolume-effects": {
+      "inputs": {
+        "ffgl": "ffgl",
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1794784278,
+        "narHash": "sha256-Gx1X6aL8qVbXmGKCsKXeo/39hBwHO2Txs5/QT0fGpvY=",
+        "owner": "TristonYoder",
+        "repo": "resolume-effects",
+        "rev": "0de9faa9284bb50d311eb39f31ce81b2390175dc",
+        "type": "github"
+      },
+      "original": {
+        "owner": "TristonYoder",
+        "repo": "resolume-effects",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "agenix": "agenix",
         "nix-darwin": "nix-darwin",
         "nix-homebrew": "nix-homebrew",
         "nixpkgs": "nixpkgs",
-        "nixpkgs-unstable": "nixpkgs-unstable"
+        "nixpkgs-unstable": "nixpkgs-unstable",
+        "resolume-effects": "resolume-effects"
       }
     }
   },
