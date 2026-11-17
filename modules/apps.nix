@@ -23,8 +23,10 @@
 #   after:     apps whose `ready` must pass before this one launches at login
 #              (only those this machine has; gives up after 10 seconds and
 #              launches anyway)
-#   dock:      app bundle shown in the Dock (apps without one stay off it, and
-#              so does this one until it's actually installed)
+#   dock:      where the app sits in the Dock (apps without one stay off it):
+#                app    bundle path; left off until it's actually installed
+#                group  primary (the machine's production apps), support
+#                       (drivers, audio routing) or web; see dockGroups
 #   remove:    paths the vendor installs that we don't want (see
 #              modules/cleanup.nix)
 { config, lib, pkgs, ... }:
@@ -34,7 +36,7 @@ let
     chrome = {
       cask = "google-chrome";
       app = "/Applications/Google Chrome.app";
-      dock = "/Applications/Google Chrome.app";
+      dock = { app = "/Applications/Google Chrome.app"; group = "web"; };
     };
 
     # Signs in per machine; set it to stream (not mirror) so it doesn't fill the disk.
@@ -45,7 +47,7 @@ let
     spotify = {
       cask = "spotify";
       app = "/Applications/Spotify.app";
-      dock = "/Applications/Spotify.app";
+      dock = { app = "/Applications/Spotify.app"; group = "primary"; };
     };
 
     propresenter = {
@@ -55,19 +57,19 @@ let
       # Opened before Dante is up, it falls back to the built-in audio device
       # (same for Resolume below).
       after = [ "dante-virtual-soundcard" ];
-      dock = "/Applications/ProPresenter.app";
+      dock = { app = "/Applications/ProPresenter.app"; group = "primary"; };
     };
 
     resolume = {
       cask = "resolume-arena";
       launch = "Arena";
       after = [ "dante-virtual-soundcard" ];
-      dock = "/Applications/Resolume Arena/Arena.app";
+      dock = { app = "/Applications/Resolume Arena/Arena.app"; group = "primary"; };
     };
 
     dante-controller = {
       cask = "dante-controller";
-      dock = "/Applications/Dante Controller.app";
+      dock = { app = "/Applications/Dante Controller.app"; group = "support"; };
     };
 
     swiftbar = {
@@ -83,7 +85,7 @@ let
     };
 
     desktop-video = {
-      dock = "/Applications/Blackmagic Desktop Video/Desktop Video Setup.app";
+      dock = { app = "/Applications/Blackmagic Desktop Video/Desktop Video Setup.app"; group = "support"; };
       # Its updater agent prompts operators at login to flash card firmware;
       # versions change only through the pin below, and the deploy flashes
       # firmware to match (roles/cg.nix).
@@ -99,7 +101,7 @@ let
     };
 
     atem-software-control = {
-      dock = "/Applications/Blackmagic ATEM Switchers/ATEM Software Control.app";
+      dock = { app = "/Applications/Blackmagic ATEM Switchers/ATEM Software Control.app"; group = "primary"; };
       installer = {
         url = "https://www.blackmagicdesign.com/support/family/atem-live-production-switchers";
         file = null; # not pinned yet: download the ATEM Switchers .pkg and pin it here
@@ -112,7 +114,7 @@ let
     # Bump both together: same release, same version.
     "13-years-producer" = {
       launch = "13 Years Producer";
-      dock = "/Applications/13 Years Producer.app";
+      dock = { app = "/Applications/13 Years Producer.app"; group = "primary"; };
       dmg = {
         url = "https://github.com/TristonYoder/13years/releases/download/v1.8.0/13-Years-Producer-1.8.0.dmg";
         hash = "sha256-PuSZ6N6bs3plzpfhjtaQvNGReXT+kfCvKZSYR8ij5FA=";
@@ -132,7 +134,7 @@ let
     };
 
     dante-virtual-soundcard = {
-      dock = "/Applications/Dante Virtual Soundcard.app";
+      dock = { app = "/Applications/Dante Virtual Soundcard.app"; group = "support"; };
       # Its CoreAudio device exists (the daemon has started it).
       ready = "/usr/sbin/system_profiler SPAudioDataType 2>/dev/null | /usr/bin/grep -q 'Dante Virtual Soundcard'";
       installer = {
@@ -151,9 +153,12 @@ let
   selected = lib.genAttrs names (name: catalog.${name});
   pick = field: lib.filterAttrs (_: app: app ? ${field}) selected;
 
-  dockApps =
-    lib.concatMap (name: lib.optional (catalog.${name} ? dock) catalog.${name}.dock) names
-    ++ [ "/System/Applications/System Settings.app" ];
+  # Dock, left to right: primary | spacer | support | spacer | web, then the
+  # divider, Downloads and the Trash. A spacer only sits between groups that
+  # both have an installed app.
+  dockGroups = [ "primary" "support" "web" ];
+  dockApps = group:
+    lib.concatMap (name: lib.optional ((catalog.${name}.dock.group or null) == group) catalog.${name}.dock.app) names;
 
   # The .pkg enters the deploy Mac's store via `nix-store --add-fixed` (done by
   # ./deploy) and reaches each machine inside the system closure.
@@ -266,12 +271,12 @@ in
   config = {
     homebrew.casks = lib.mapAttrsToList (_: app: app.cask) (pick "cask");
 
-    # Only this machine's apps, in the order they're listed, and only those
-    # actually on disk: a missing bundle shows as a "?" in the Dock. Written
-    # last in activation (after casks and installers), not via
-    # system.defaults.dock.persistent-apps, which nix-darwin writes before
-    # anything is installed. Apple's own apps can't be deleted, so keeping them
-    # off the Dock is the cleanup for those.
+    # Only this machine's apps, grouped (see dockGroups) and in the order
+    # they're listed, and only those actually on disk: a missing bundle shows
+    # as a "?" in the Dock. Written last in activation (after casks and
+    # installers), not via system.defaults.dock.persistent-apps, which
+    # nix-darwin writes before anything is installed. Apple's own apps can't be
+    # deleted, so keeping them off the Dock is the cleanup for those.
     system.activationScripts.postActivation.text = lib.mkMerge [
       (lib.concatStrings (lib.mapAttrsToList (name: app: installScript name app.installer) (pick "installer")))
       (lib.concatStrings (lib.mapAttrsToList (name: app: dmgScript name app.dmg) (pick "dmg")))
@@ -283,21 +288,36 @@ in
           + "<key>_CFURLString</key><string>${lib.escapeXML path}</string>"
           + "<key>_CFURLStringType</key><integer>0</integer>"
           + "</dict></dict></dict>");
+        spacer = lib.escapeShellArg
+          "<dict><key>tile-data</key><dict/><key>tile-type</key><string>spacer-tile</string></dict>";
         addTile = path: ''
           if [ -e ${lib.escapeShellArg path} ]; then
-            dockTiles="$dockTiles"${tile path}
+            groupTiles="$groupTiles"${tile path}
           else
             echo "note: ${path} is not installed; leaving it off the Dock" >&2
+          fi
+        '';
+        addGroup = group: ''
+          groupTiles=
+          ${lib.concatMapStrings addTile (dockApps group)}
+          if [ -n "$groupTiles" ]; then
+            [ -n "$dockTiles" ] && dockTiles="$dockTiles"${spacer}
+            dockTiles="$dockTiles$groupTiles"
           fi
         '';
       in ''
         echo >&2 "setting the Dock..."
         dockTiles=
-        ${lib.concatMapStrings addTile dockApps}
+        ${lib.concatMapStrings addGroup dockGroups}
         launchctl asuser "$(id -u -- ${user})" sudo --user=${user} -- defaults write com.apple.dock persistent-apps \
           '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array>'"$dockTiles"'</array></plist>'
         killall -qu ${user} Dock || true
       ''))
+    ];
+
+    # Right of the divider: Downloads, then the Trash (always there).
+    system.defaults.dock.persistent-others = [
+      { folder = { path = "/Users/${config.system.primaryUser}/Downloads"; arrangement = "date-added"; }; }
     ];
 
     production.remove = lib.concatLists (lib.mapAttrsToList (_: app: app.remove) (pick "remove"));
