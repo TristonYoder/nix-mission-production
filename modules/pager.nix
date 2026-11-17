@@ -58,7 +58,7 @@ let
       for _ in $(seq 1 20); do pgrep -xq "13 Years" || break; sleep 0.5; done
     fi
     ${lib.concatStringsSep "\n    " (lib.mapAttrsToList write settings)}
-    [ "$running" = 1 ] && open -a ${lib.escapeShellArg app}
+    [ "$running" = 1 ] && open -j -a ${lib.escapeShellArg app}
     exit 0
   '';
 

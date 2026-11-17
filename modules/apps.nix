@@ -19,6 +19,7 @@
 #              won't install over a copy it didn't put there, so
 #              `./deploy bootstrap` moves such hand-installed copies aside.
 #   launch:    app name passed to `open -a` at login
+#   hidden:    launch it hidden (`open -j`), at login and when a deploy reopens it
 #   ready:     shell test that passes once the app's service is up
 #   after:     apps whose `ready` must pass before this one launches at login
 #              (only those this machine has; gives up after 10 seconds and
@@ -126,6 +127,7 @@ let
     # menu bar.
     "13-years-pager" = {
       launch = "13 Years";
+      hidden = true;
       dmg = {
         url = "https://github.com/TristonYoder/13years/releases/download/v1.8.0/13-Years-1.8.0.dmg";
         hash = "sha256-wxtaCIdNehqrXLHvQ/oQekv+sprJzV00REKRj96w5J0=";
@@ -196,6 +198,8 @@ let
           ${lib.optionalString (marker != null) "rm -f ${lib.escapeShellArg marker}"}
         fi
       '';
+  openFlags = app: lib.optionalString (app.hidden or false) "-j";
+
   # Wait for the `after` apps this machine has, then open the app.
   launchScript = name: app:
     let
@@ -211,7 +215,7 @@ let
         fi
         sleep 1
       done
-    '' + "exec /usr/bin/open -a ${lib.escapeShellArg app.launch}";
+    '' + "exec /usr/bin/open ${openFlags app} -a ${lib.escapeShellArg app.launch}";
 
   # Copy the .app out of the pinned .dmg when it differs from what this machine
   # last installed. A running copy is quit first and reopened after, so the new
@@ -242,7 +246,7 @@ let
           hdiutil detach "$mnt" -quiet || true
           if [ "$running" = 1 ]; then
             uid=$(id -u ${lib.escapeShellArg config.system.primaryUser})
-            launchctl asuser "$uid" sudo -u ${lib.escapeShellArg config.system.primaryUser} open -a ${lib.escapeShellArg app} || true
+            launchctl asuser "$uid" sudo -u ${lib.escapeShellArg config.system.primaryUser} open ${openFlags selected.${name}} -a ${lib.escapeShellArg app} || true
           fi
         else
           echo "error: mounting ${dmg} failed" >&2
