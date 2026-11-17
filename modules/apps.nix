@@ -18,7 +18,9 @@
 #   app:       bundle a cask installs as a plain .app (not a .pkg). Homebrew
 #              won't install over a copy it didn't put there, so
 #              `./deploy bootstrap` moves such hand-installed copies aside.
-#   launch:    app name passed to `open -a` at login
+#   launch:    app name passed to `open -a` at login (skipped while it's
+#              already running, so a deploy that reloads the agent doesn't
+#              send it a reopen: SwiftBar answers one with an alert)
 #   hidden:    launch it hidden (`open -j`), at login and when a deploy reopens it
 #   ready:     shell test that passes once the app's service is up
 #   after:     apps whose `ready` must pass before this one launches at login
@@ -200,13 +202,16 @@ let
       '';
   openFlags = app: lib.optionalString (app.hidden or false) "-j";
 
-  # Wait for the `after` apps this machine has, then open the app.
+  # Unless it's already running: wait for the `after` apps this machine has,
+  # then open the app.
   launchScript = name: app:
     let
       deps = lib.filter (dep: selected ? ${dep} && selected.${dep} ? ready) (app.after or [ ]);
       ready = lib.concatMapStringsSep " && " (dep: "(${selected.${dep}.ready})") deps;
     in
-    lib.optionalString (deps != [ ]) ''
+    ''
+      [ -z "$(/usr/bin/lsappinfo find name=${lib.escapeShellArg app.launch})" ] || exit 0
+    '' + lib.optionalString (deps != [ ]) ''
       deadline=$(( $(/bin/date +%s) + 10 ))
       until ${ready}; do
         if [ "$(/bin/date +%s)" -ge "$deadline" ]; then
