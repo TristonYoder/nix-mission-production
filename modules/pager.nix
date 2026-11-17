@@ -58,7 +58,7 @@ let
       for _ in $(seq 1 20); do pgrep -xq "13 Years" || break; sleep 0.5; done
     fi
     ${lib.concatStringsSep "\n    " (lib.mapAttrsToList write settings)}
-    [ "$running" = 1 ] && open -a ${lib.escapeShellArg app}
+    [ "$running" = 1 ] && open -j -a ${lib.escapeShellArg app}
     exit 0
   '';
 
@@ -93,6 +93,9 @@ in
     # The producer runs on west-cg4.
     production.pager.host = lib.mkDefault inventory.hosts.west-cg4.ip;
 
+    # Menu bar only, no Dock icon.
+    production.pager.menuBar.hideDockIcon = lib.mkDefault true;
+
     # After modules/apps.nix has installed or updated the app. Re-applied when
     # the settings change, and whenever the app was just reinstalled.
     system.activationScripts.postActivation.text = lib.mkIf (settings != { }) (lib.mkAfter ''
@@ -100,7 +103,7 @@ in
         && { [ "$(cat /var/db/production-installers/pager-preferences 2>/dev/null)" != ${stamp} ] \
           || [ /var/db/production-installers/13-years-pager -nt /var/db/production-installers/pager-preferences ]; }; then
         uid=$(id -u ${lib.escapeShellArg user})
-        if [ "$(stat -f %u /dev/console)" = "$uid" ]; then
+        if [ "$(/usr/bin/stat -f %u /dev/console)" = "$uid" ]; then
           echo "applying 13 Years pager settings..."
           if launchctl asuser "$uid" sudo -u ${lib.escapeShellArg user} ${apply}; then
             echo ${stamp} > /var/db/production-installers/pager-preferences
