@@ -4,6 +4,7 @@
 
 {
   production.apps = [ "desktop-video" "dante-virtual-soundcard" ];
+  production.pager.role = "CG";
 
   # Wired only: a second network over WiFi gives the Mac a competing default
   # route (the old CG3 sat on the admin network this way).
