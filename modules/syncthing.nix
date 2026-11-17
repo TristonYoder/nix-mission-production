@@ -36,8 +36,16 @@ let
   hasResolume = name: lib.elem "resolume" (inventory.hosts.${name}.apps or [ ]);
 
   resolume = lib.elem "resolume" config.production.apps;
-  peers = lib.filter (name: name != host && hasIdentity name && hasResolume name)
-    (lib.attrNames inventory.hosts);
+  # Other Resolume Macs, plus devices outside the fleet (`resolumePeers` in
+  # inventory.nix), which have no fixed address and dial in.
+  peers =
+    lib.genAttrs
+      (lib.filter (name: name != host && hasIdentity name && hasResolume name) (lib.attrNames inventory.hosts))
+      (name: let h = inventory.hosts.${name}; in {
+        id = deviceId name;
+        addresses = [ "tcp://${h.address or h.ip or "${name}.local"}:22000" "dynamic" ];
+      })
+    // lib.mapAttrs (_: id: { inherit id; addresses = [ "dynamic" ]; }) (inventory.resolumePeers or { });
 
   folderId = "resolume-arena";
   path = "/Users/${user}/Resolume Arena";
@@ -67,18 +75,14 @@ let
     "/Extra Effects" # installed by Nix (programs.resolume-effects)
   ];
 
-  device = name: let h = inventory.hosts.${name}; in {
-    deviceID = deviceId name;
-    inherit name;
-    addresses = [ "tcp://${h.address or h.ip or "${name}.local"}:22000" "dynamic" ];
-  };
+  device = name: p: { deviceID = p.id; inherit name; inherit (p) addresses; };
   folder = {
     id = folderId;
     label = "Resolume Arena";
     inherit path;
     type = "sendreceive";
     fsWatcherEnabled = true;
-    devices = map (name: { deviceID = deviceId name; }) peers;
+    devices = lib.mapAttrsToList (_: p: { deviceID = p.id; }) peers;
   };
 
   # Put this Mac's identity in place, then run Syncthing. A new identity
@@ -118,8 +122,8 @@ let
 
     api PATCH config/options ${lib.escapeShellArg (builtins.toJSON { urAccepted = -1; })}
   '' + (if resolume then ''
-    ${lib.concatMapStringsSep "\n" (name:
-      "api PUT config/devices/${deviceId name} ${lib.escapeShellArg (builtins.toJSON (device name))}") peers}
+    ${lib.concatStringsSep "\n" (lib.mapAttrsToList (name: p:
+      "api PUT config/devices/${p.id} ${lib.escapeShellArg (builtins.toJSON (device name p))}") peers)}
 
     # Ignores first, so the first scan never shares what they exclude.
     mkdir -p ${lib.escapeShellArg path}
