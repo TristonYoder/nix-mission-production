@@ -30,6 +30,9 @@ in
     networking.localHostName = cfg.hostName;
     networking.computerName = cfg.label;
 
+    # Central time on every machine, so clocks, schedules and logs agree.
+    time.timeZone = "America/Chicago";
+
     # --- Operator account -----------------------------------------------------
     # The account is created in Setup Assistant; nix-darwin only manages its
     # settings, so it is deliberately not listed in users.knownUsers.
