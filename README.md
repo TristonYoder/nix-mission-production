@@ -31,10 +31,10 @@ Current fleet:
 
 | Host | Role | Apps (plus Chrome and Google Drive everywhere) |
 |---|---|---|
-| west-cg5hs (hot spare, .95) | cg | Desktop Video, Dante Virtual Soundcard, ProPresenter, Resolume Arena |
-| west-cg1, west-cg2 (.91, .92) | cg | Desktop Video, Dante Virtual Soundcard, ProPresenter |
-| west-cg3 (.93) | cg | Desktop Video, Dante Virtual Soundcard, Resolume Arena |
-| west-cg4 (.94) | cg | Desktop Video, Dante Virtual Soundcard, ProPresenter, Spotify, 13 Years Producer |
+| west-cg5hs (hot spare, .95) | cg | Desktop Video, Dante Virtual Soundcard, Sonnet Twin10G driver, ProPresenter, Resolume Arena |
+| west-cg1, west-cg2 (.91, .92) | cg | Desktop Video, Dante Virtual Soundcard, Sonnet Twin10G driver, ProPresenter |
+| west-cg3 (.93) | cg | Desktop Video, Dante Virtual Soundcard, Sonnet Twin10G driver, Resolume Arena |
+| west-cg4 (.94) | cg | Desktop Video, Dante Virtual Soundcard, Sonnet Twin10G driver, ProPresenter, Spotify, 13 Years Producer |
 | audio | audio | Dante Virtual Soundcard, Dante Controller |
 | service-director | service-director | ATEM Software Control, Dante Controller |
 | video | video | ATEM Software Control |
@@ -85,7 +85,8 @@ Current fleet:
 
 - Reboot once so the login items apply. Then ⌘-drag the machine name in the
   menu bar next to the clock (macOS remembers it).
-- CG/Audio: approve the Desktop Video and Dante system extensions when prompted.
+- CG/Audio: approve the Desktop Video, Dante and (CG) Sonnet Twin10G system
+  extensions when prompted.
   Desktop Video's kernel extension needs **Reduced Security** set in Recovery
   (hold power → Options → Startup Security Utility) before macOS will load it.
 - Activate licences: Dante Virtual Soundcard, ProPresenter, Resolume.
@@ -129,7 +130,7 @@ Same as above, without wiping it. Do it outside the blackout window, at the Mac.
 Apps installed outside the catalog (TeamViewer, Chrome Remote Desktop, ...) are
 left alone. Remove them with their vendor uninstaller.
 
-### Vendor installers (Desktop Video, Dante Virtual Soundcard)
+### Vendor installers (Desktop Video, Dante Virtual Soundcard, Sonnet Twin10G)
 
 These have no Homebrew cask, since the downloads sit behind a vendor form or
 login. Instead, the repo pins the exact `.pkg` by file name and hash in
