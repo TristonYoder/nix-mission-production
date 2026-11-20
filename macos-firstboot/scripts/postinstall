@@ -1,0 +1,14 @@
+#!/bin/sh
+# The payload is already in place on the target volume ($3). During an OS
+# install ($3 is the new volume, not /) launchd loads the daemon at first boot
+# on its own. Only when installed onto the running system (MDM, or
+# `installer -pkg ... -target /`) does it need starting now.
+set -eu
+plist="$3/Library/LaunchDaemons/org.missionproduction.firstboot.plist"
+chown root:wheel "$plist"
+chmod 644 "$plist"
+if [ "$3" = "/" ]; then
+  launchctl bootout system "$plist" 2>/dev/null || true
+  launchctl bootstrap system "$plist"
+fi
+exit 0

@@ -56,6 +56,17 @@
     {           name = "Production Control - WiFi"; subnet = "192.168.100.0/24"; }
   ];
 
+  # The shared profile for Macs set up by the first-boot package
+  # (macos-firstboot/), before they get a name under `hosts`. Every such Mac
+  # names itself <prefix>-<last 6 hex digits of en0's MAC>, builds
+  # darwinConfigurations.<prefix> from GitHub, and keeps following main there
+  # (modules/generic.nix). ./deploy never touches these: they aren't in `hosts`.
+  generic = {
+    prefix = "missionproduction"; # also the flake attribute
+    role = "generic";
+    repo = "TristonYoder/nix-mission-production"; # public, on GitHub
+  };
+
   # role:  file in ./roles
   # apps:  extra apps from the catalog in modules/apps.nix (added to the role's)
   # label: computer name (default: name upper-cased, "-" -> " ")

@@ -15,6 +15,7 @@
     ./decklink.nix
     ./syncthing.nix
     ./resolume.nix
+    ./generic.nix
     ./cleanup.nix
     ./fonts.nix
   ];

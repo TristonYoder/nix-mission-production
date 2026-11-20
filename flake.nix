@@ -57,7 +57,15 @@
         };
     in
     {
-      darwinConfigurations = builtins.mapAttrs mkHost inventory.hosts;
+      # Plus the shared profile every not-yet-named Mac runs (macos-firstboot/,
+      # modules/generic.nix). Its name is set at first boot, not here.
+      darwinConfigurations = builtins.mapAttrs mkHost inventory.hosts // {
+        ${inventory.generic.prefix} = mkHost inventory.generic.prefix {
+          inherit (inventory.generic) role;
+          label = "MISSION PRODUCTION";
+          config.production.generic = true;
+        };
+      };
 
       # Read by ./deploy (addresses, blackout windows, roles).
       inherit inventory;

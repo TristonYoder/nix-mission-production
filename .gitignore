@@ -6,3 +6,7 @@ CLAUDE.md
 .DS_Store
 *.swp
 *~
+
+# Built packages (may hold the enrollment token)
+macos-firstboot/build/
+*.pkg
