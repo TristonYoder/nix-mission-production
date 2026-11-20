@@ -12,7 +12,10 @@ let
   plugin = pkgs.writeShellApplication {
     name = "machine.sh"; # SwiftBar: no interval in the name, runs on open
     text = ''
-      LABEL=${lib.escapeShellArg config.production.label}
+      ${if config.production.generic
+        # Every generic Mac shares one build; show the name it gave itself.
+        then ''LABEL="$(scutil --get ComputerName 2>/dev/null || hostname -s)"''
+        else "LABEL=${lib.escapeShellArg config.production.label}"}
       TITLE=${lib.escapeShellArg card.title}
       LOCATION=${lib.escapeShellArg (toString card.location)}
       FUNCTION=${lib.escapeShellArg card.function}

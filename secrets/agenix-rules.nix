@@ -2,14 +2,19 @@
 # the fleet shares one WiFi network and one operator account, so there is
 # nothing to gain from per-host scoping.
 #
-# Host keys are files in ./host-keys, written by `./deploy bootstrap`.
+# Host keys are files in ./host-keys, written by `./deploy bootstrap` (named
+# hosts) or by the enrollment PR (generic Macs, .github/workflows/enroll-host.yml).
+# ./ci-key.pub is the GitHub Actions key that re-keys for those PRs
+# (macos-firstboot/setup-enrollment.sh); delete it and re-key to revoke CI.
 let
   inventory = import ../inventory.nix;
-  readKey = f: builtins.head (builtins.split "\n" (builtins.readFile (./host-keys + "/${f}")));
+  firstLine = p: builtins.head (builtins.split "\n" (builtins.readFile p));
+  readKey = f: firstLine (./host-keys + "/${f}");
   hostKeys = map readKey
     (builtins.filter (f: builtins.match ".*\\.pub" f != null)
       (builtins.attrNames (builtins.readDir ./host-keys)));
-  everyone = inventory.adminKeys ++ hostKeys;
+  ciKeys = if builtins.pathExists ./ci-key.pub then [ (firstLine ./ci-key.pub) ] else [ ];
+  everyone = inventory.adminKeys ++ ciKeys ++ hostKeys;
 
   # Each Mac's Syncthing key, made by `./deploy bootstrap`. Listed once it
   # exists (rekeying needs every listed file); ./deploy names the one it is

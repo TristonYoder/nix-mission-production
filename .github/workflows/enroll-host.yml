@@ -1,0 +1,141 @@
+# Turns an enrollment issue from a freshly installed generic Mac
+# (macos-firstboot/firstboot.sh) into a PR that adds its SSH host key to
+# secrets/host-keys/ and re-keys every secret for it. Merging the PR is the
+# approval: the Mac picks up main within 15 minutes (modules/generic.nix) and
+# can then decrypt its secrets (RustDesk enrollment, WiFi, ...).
+#
+# Only issues opened by the enrollment token's account are acted on
+# (repo variable ENROLL_ISSUE_AUTHOR, default: the repo owner). Re-run one by
+# hand (e.g. after another enrollment PR was merged first and this one
+# conflicts): Actions > Enroll host > Run workflow, with the issue number.
+#
+# One-time setup: macos-firstboot/setup-enrollment.sh.
+name: Enroll host
+
+on:
+  issues:
+    types: [opened]
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Enrollment issue number
+        required: true
+
+# Every enrollment re-keys every secret: one at a time.
+concurrency:
+  group: enroll-host
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  enroll:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.issue.user.login == (vars.ENROLL_ISSUE_AUTHOR || github.repository_owner) &&
+       startsWith(github.event.issue.title, 'Enroll ') &&
+       contains(github.event.issue.body, '<!-- enroll-host v1 -->'))
+    runs-on: macos-latest # aarch64-darwin, the devShell's system
+    environment: rekey # holds AGENIX_CI_KEY; limited to main
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ISSUE: ${{ github.event.issue.number || inputs.issue }}
+      ALLOWED_AUTHOR: ${{ vars.ENROLL_ISSUE_AUTHOR || github.repository_owner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Issue text is untrusted: it only ever reaches the shell through env
+      # and files, and only values matching the expected shape get through.
+      - name: Read and check the request
+        id: req
+        run: |
+          set -euo pipefail
+          [[ $ISSUE =~ ^[0-9]+$ ]] || { echo "bad issue number"; exit 1; }
+          gh issue view "$ISSUE" --json author,body,state > "$RUNNER_TEMP/issue.json"
+          author=$(jq -r .author.login "$RUNNER_TEMP/issue.json")
+          if [ "$author" != "$ALLOWED_AUTHOR" ]; then
+            echo "issue #$ISSUE is from $author, not $ALLOWED_AUTHOR; ignoring"
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          body=$(jq -r .body "$RUNNER_TEMP/issue.json" | tr -d '\r')
+          host=$(printf '%s\n' "$body" | sed -n 's/^host: //p' | head -1)
+          key=$(printf '%s\n' "$body" | sed -n 's/^key: //p' | head -1)
+          [[ $host =~ ^[a-z0-9]+-[0-9a-f]{6}$ ]] || { echo "bad host '$host'"; exit 1; }
+          [[ $key =~ ^ssh-ed25519\ AAAAC3NzaC1lZDI1NTE5[A-Za-z0-9+/]{48}$ ]] || { echo "bad key"; exit 1; }
+          printf '%s\n' "$key" > "$RUNNER_TEMP/host.pub"
+          fp=$(ssh-keygen -lf "$RUNNER_TEMP/host.pub" | awk '{print $2}')
+          {
+            echo "host=$host"
+            echo "key=$key"
+            echo "fp=$fp"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Already enrolled?
+        id: same
+        if: steps.req.outputs.skip != '1'
+        env:
+          HOST: ${{ steps.req.outputs.host }}
+        run: |
+          set -euo pipefail
+          if cmp -s "$RUNNER_TEMP/host.pub" "secrets/host-keys/$HOST.pub"; then
+            gh issue close "$ISSUE" --comment "$HOST is already enrolled with this key on main; nothing to do."
+            echo "done=1" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: cachix/install-nix-action@v31
+        if: steps.req.outputs.skip != '1' && steps.same.outputs.done != '1'
+
+      - name: Add host key and re-key secrets
+        if: steps.req.outputs.skip != '1' && steps.same.outputs.done != '1'
+        env:
+          HOST: ${{ steps.req.outputs.host }}
+          AGENIX_CI_KEY: ${{ secrets.AGENIX_CI_KEY }}
+        run: |
+          set -euo pipefail
+          [ -n "$AGENIX_CI_KEY" ] || { echo "AGENIX_CI_KEY is not set (run macos-firstboot/setup-enrollment.sh)"; exit 1; }
+          cp "$RUNNER_TEMP/host.pub" "secrets/host-keys/$HOST.pub"
+          (umask 077; printf '%s\n' "$AGENIX_CI_KEY" > "$RUNNER_TEMP/agenix")
+          trap 'rm -f "$RUNNER_TEMP/agenix"' EXIT
+          cd secrets
+          nix develop .. -c agenix -r -i "$RUNNER_TEMP/agenix"
+
+      - name: Open or update the PR
+        if: steps.req.outputs.skip != '1' && steps.same.outputs.done != '1'
+        env:
+          HOST: ${{ steps.req.outputs.host }}
+          FP: ${{ steps.req.outputs.fp }}
+        run: |
+          set -euo pipefail
+          branch="enroll/$HOST"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$branch"
+          git add secrets
+          git commit -q -m "hosts: enroll $HOST" -m "Host key $FP, requested in #$ISSUE."
+          git push -f origin "$branch"
+          cat > "$RUNNER_TEMP/pr.md" <<EOF
+          Adds the SSH host key of **$HOST** and re-keys every secret for it.
+
+          - Fingerprint: \`$FP\`
+          - Requested in #$ISSUE by the first-boot package.
+
+          Merge only if you just reinstalled this Mac. To compare, run at the Mac
+          (or over SSH): \`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub\`; the
+          same fingerprint is in \`/var/log/firstboot.log\`.
+
+          Once merged, the Mac switches to main within 15 minutes and RustDesk
+          enrolls itself. If another enrollment was merged first and this PR
+          conflicts, re-run the "Enroll host" workflow for #$ISSUE.
+
+          Closes #$ISSUE
+          EOF
+          if url=$(gh pr view "$branch" --json url,state --jq 'select(.state == "OPEN") | .url' 2>/dev/null) && [ -n "$url" ]; then
+            gh pr edit "$branch" --body-file "$RUNNER_TEMP/pr.md"
+          else
+            url=$(gh pr create --base main --head "$branch" --title "Enroll $HOST" --body-file "$RUNNER_TEMP/pr.md")
+          fi
+          gh issue comment "$ISSUE" --body "Enrollment PR: $url (fingerprint \`$FP\`)"

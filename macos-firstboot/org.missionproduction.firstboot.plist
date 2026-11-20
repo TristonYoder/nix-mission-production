@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>org.missionproduction.firstboot</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/bash</string>
+		<string>/usr/local/libexec/org.missionproduction.firstboot/firstboot.sh</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<!-- Retry a failed run without waiting for a reboot. launchd never starts a
+	     second copy while one is still running (e.g. waiting for login). -->
+	<key>StartInterval</key>
+	<integer>900</integer>
+	<key>StandardOutPath</key>
+	<string>/var/log/firstboot.log</string>
+	<key>StandardErrorPath</key>
+	<string>/var/log/firstboot.log</string>
+</dict>
+</plist>

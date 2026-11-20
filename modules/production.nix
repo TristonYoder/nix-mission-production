@@ -18,6 +18,16 @@ in
       default = lib.toUpper (lib.replaceStrings [ "-" ] [ " " ] cfg.hostName);
       description = "Human-facing name shown on the wallpaper.";
     };
+
+    generic = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        The shared profile for not-yet-named Macs (modules/generic.nix). Each
+        one names itself missionproduction-<mac> at first boot, so nix-darwin
+        leaves the hostname alone.
+      '';
+    };
   };
 
   config = {
@@ -26,9 +36,10 @@ in
     nixpkgs.config.allowUnfree = true;
 
     # --- Identity -------------------------------------------------------------
-    networking.hostName = cfg.hostName;
-    networking.localHostName = cfg.hostName;
-    networking.computerName = cfg.label;
+    # Generic Macs keep the name macos-firstboot gave them (null = unmanaged).
+    networking.hostName = lib.mkIf (!cfg.generic) cfg.hostName;
+    networking.localHostName = lib.mkIf (!cfg.generic) cfg.hostName;
+    networking.computerName = lib.mkIf (!cfg.generic) cfg.label;
 
     # Central time on every machine, so clocks, schedules and logs agree.
     time.timeZone = "America/Chicago";

@@ -26,6 +26,9 @@ the deploy keys builds every machine and pushes it over SSH.
 | `modules/wifi.nix`, `modules/autologin.nix`, `modules/rustdesk.nix`, `modules/nas.nix` | Use `secrets/`; do nothing until the secret exists. |
 | `secrets/` | agenix secrets and host keys. |
 | `deploy` | Build, copy, activate. Also bootstraps new Macs. |
+| `macos-firstboot/` | First-boot package for a hands-off reinstall: any Mac becomes a generic `missionproduction-<mac>` (see [Zero-touch reinstall](#zero-touch-reinstall-generic-macs)). |
+| `modules/generic.nix`, `roles/generic.nix` | The generic profile: baseline only, and it pulls main from GitHub itself every 15 minutes. |
+| `.github/workflows/enroll-host.yml` | Turns a generic Mac's enrollment issue into a PR with its host key and re-keyed secrets. |
 
 Current fleet:
 
@@ -157,6 +160,122 @@ To pin or upgrade:
 
 While `file = null`, an app is unpinned: activation only warns if it's missing.
 
+## Zero-touch reinstall (generic Macs)
+
+Wipe and reinstall any Apple Silicon Mac so it sets itself up with no
+commands at the machine. It becomes **`missionproduction-<mac>`** (the last 6
+hex digits of en0's hardware address), running the shared
+`darwinConfigurations.missionproduction` profile (`inventory.generic`): baseline
+only (Chrome, Google Drive, RustDesk, SSH with the deploy keys, Syncthing,
+wallpaper, pager). It keeps itself on main and is not part of `./deploy`.
+
+### One-time setup
+
+1. **Developer ID Installer certificate** (account holder only): Xcode →
+   Settings → Accounts → Manage Certificates → + → Developer ID Installer.
+   The "Developer ID Application" certificate can't sign packages.
+2. **Notary profile** in your keychain (app-specific password from
+   appleid.apple.com):
+
+   ```bash
+   xcrun notarytool store-credentials notary --apple-id <apple-id> --team-id JFFQ4Z6YQ5
+   ```
+
+3. **Enrollment** (CI re-key key, GitHub environment and settings):
+
+   ```bash
+   macos-firstboot/setup-enrollment.sh
+   ```
+
+   Then push, and make the issue-only token it describes. The token stays out
+   of the repo: keep it in a file next to the install USB.
+
+### Build the package
+
+```bash
+macos-firstboot/build.sh --token-file /path/to/enroll-token
+```
+
+This signs as `Developer ID Installer: 7 and Co LLC (JFFQ4Z6YQ5)` (override
+with `SIGN_IDENTITY`), notarizes with the `notary` profile (`NOTARY_PROFILE`),
+staples, checks the signature and prints the payload. The output lands in
+`macos-firstboot/build/` (git-ignored). **With a token inside, the package is
+sensitive**: keep it on the USB only, and revoke the token if the USB goes
+missing. The token can only open issues, and nothing gets access until you
+merge a PR. Without `--token-file`, enrollment is manual (below).
+`--unsigned` builds a package for checking the layout only.
+
+The package holds only a LaunchDaemon
+(`/Library/LaunchDaemons/org.missionproduction.firstboot.plist`), the script
+and its settings (`/usr/local/libexec/org.missionproduction.firstboot/`). The
+same package can later go out through MDM unchanged: its postinstall starts the
+daemon right away when installed on a running system.
+
+### Reinstall a Mac
+
+On the Mac, from its current macOS, with the installer app in /Applications
+(or on the USB):
+
+```bash
+sudo "/Applications/Install macOS <name>.app/Contents/Resources/startosinstall" \
+  --eraseinstall --agreetolicense --newvolumename "Macintosh HD" \
+  --installpackage /Volumes/<usb>/missionproduction-firstboot-<version>.pkg \
+  --user <admin on this Mac> --passprompt
+```
+
+Booting the USB into the installer does **not** run the package; this command
+is the only route.
+
+### What happens
+
+1. Setup Assistant runs as usual. Create **Mission Production /
+   `missionproduction`** as an admin (as for any production Mac). Leave
+   FileVault off if it should log in automatically.
+2. At that first login, `firstboot.sh` (root, from launchd) waits for the
+   network, then installs the Command Line Tools and Nix, names the Mac, builds
+   the profile from the commit main points at and activates it (Homebrew and
+   the apps come with it). Nothing is shown on screen until it finishes. A
+   notification says when it's done.
+3. It opens an issue with the Mac's SSH host key. The **Enroll host** Action
+   turns that into a PR that adds `secrets/host-keys/<host>.pub` and re-keys
+   every secret. Compare the fingerprint in the PR with the Mac (at the Mac or
+   over SSH: `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`) and merge.
+4. Within 15 minutes the Mac switches to the new main
+   (`/var/log/follow-main.log`). It can now decrypt its secrets, so RustDesk
+   enrolls in the console's "Mission Production" group, WiFi joins, and the
+   operator password and auto-login are set from the secrets.
+5. **At the Mac, once** (macOS allows no other way without MDM): System
+   Settings → Privacy & Security → turn RustDesk on under **Screen & System
+   Audio Recording** and **Accessibility**. Until then remote sessions show a
+   black screen.
+
+Without a token, step 3 is manual: copy the host key from
+`/var/log/firstboot.log` into `secrets/host-keys/<host>.pub`, re-key
+(`cd secrets && nix develop .. -c agenix -r -i ~/.ssh/agenix`), commit and
+push.
+
+### Logs and reruns
+
+- First boot: `/var/log/firstboot.log`. Finished steps are marked in
+  `/var/db/org.missionproduction.firstboot/`. A failed step is retried at the
+  next boot and every 15 minutes. To retry now:
+  `sudo launchctl kickstart -k system/org.missionproduction.firstboot`. To
+  redo a step, delete its `<step>.done` file. Once everything succeeds, the
+  daemon and its files remove themselves.
+- Following main: `/var/log/follow-main.log`; skipped during blackout windows.
+  A commit that fails 3 times is skipped until main moves again. To run it now:
+  `sudo launchctl kickstart system/org.missionproduction.follow-main`.
+- Enrollment conflicts (two Macs enrolled at once): after merging one, re-run
+  **Actions → Enroll host → Run workflow** with the other's issue number.
+
+### Promoting a generic Mac
+
+To give it a role and a real name: add it to `hosts` in `inventory.nix`,
+delete `secrets/host-keys/missionproduction-<mac>.pub`, commit, then
+`./deploy bootstrap <name> missionproduction-<mac>.local`. Bootstrap registers
+the same host key under the new name and re-keys. The follow-main daemon goes
+away with the generic profile.
+
 ## Common changes
 
 - **Add an app:** add an entry to the catalog in `modules/apps.nix`, then list it in
@@ -189,7 +308,10 @@ While `file = null`, an app is unpinned: activation only warns if it's missing.
 ## Secrets
 
 This repo is public. Secrets only ever go in as agenix-encrypted `secrets/*.age`.
-Every secret is readable by the admin key and every registered host.
+Every secret is readable by the admin key and every registered host, generic
+Macs included, plus the CI key in `secrets/ci-key.pub` (it re-keys for
+enrollment PRs; its private half is the `rekey` environment's `AGENIX_CI_KEY`
+on GitHub. Delete the file and re-key to revoke it).
 
 | Secret | Contents |
 |---|---|
