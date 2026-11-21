@@ -88,6 +88,16 @@ let
       launch = "SwiftBar";
     };
 
+    # macOS has one natural-scrolling switch for mice and trackpads alike. It
+    # stays on (trackpads), and this reverses mouse wheels only. Its defaults
+    # already do exactly that. Needs Accessibility, granted once by hand.
+    unnatural-scroll-wheels = {
+      cask = "unnaturalscrollwheels";
+      app = "/Applications/UnnaturalScrollWheels.app";
+      launch = "UnnaturalScrollWheels";
+      hidden = true;
+    };
+
     # Remote support. Its launchd service and settings: modules/rustdesk.nix.
     rustdesk = {
       cask = "rustdesk";
