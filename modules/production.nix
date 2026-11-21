@@ -96,7 +96,7 @@ in
       };
     };
 
-    production.apps = [ "chrome" "google-drive" ];
+    production.apps = [ "chrome" "google-drive" "unnatural-scroll-wheels" ];
     environment.systemPackages = [ pkgs.git ];
 
     # --- Never sleep, never lock ----------------------------------------------
@@ -114,6 +114,9 @@ in
     system.defaults.NSGlobalDomain = {
       AppleInterfaceStyle = "Dark";
       NSAutomaticWindowAnimationsEnabled = false;
+      # Natural scrolling on, for trackpads. Mouse wheels are flipped back to
+      # the classic direction by UnnaturalScrollWheels (modules/apps.nix).
+      "com.apple.swipescrolldirection" = true;
     };
     system.defaults.loginwindow.GuestEnabled = false;
     system.defaults.dock = {

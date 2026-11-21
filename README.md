@@ -92,6 +92,8 @@ Current fleet:
 - RustDesk: System Settings → Privacy & Security → turn RustDesk on under
   **Screen & System Audio Recording** and **Accessibility**. macOS allows no
   other way to grant these; until then remote sessions connect to a black screen.
+- UnnaturalScrollWheels: turn it on under **Accessibility** too. Until then a
+  mouse wheel scrolls the "natural" (trackpad) way.
 
 Expect a few "App Background Activity" notifications on a new Mac, one per
 newly installed background item. Later deploys don't repeat them: launch agents
